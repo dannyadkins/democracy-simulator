@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import OpenAI from 'openai';
+import { GoogleGenAI } from '@google/genai';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -17,13 +17,11 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    if (!process.env.OPENAI_API_KEY) {
-      throw new Error('OPENAI_API_KEY environment variable is not set');
+    if (!process.env.GEMINI_API_KEY) {
+      throw new Error('GEMINI_API_KEY environment variable is not set');
     }
 
-    const openai = new OpenAI({
-      apiKey: process.env.OPENAI_API_KEY,
-    });
+    const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
 
     // Create a prompt for Ghibli-style image
     const imagePrompt = `Studio Ghibli anime style illustration, whimsical and dreamlike: 
@@ -36,27 +34,42 @@ Style: Soft watercolor textures, warm lighting, expressive characters, detailed 
 
     console.log('🎨 Generating image for:', headline.slice(0, 50));
 
-    const result = await openai.images.generate({
-      model: 'gpt-image-1',
-      prompt: imagePrompt,
-      size: '1536x1024',
-      quality: 'medium',
-      n: 1,
+    // Use Nano Banana (gemini-2.5-flash-image) for fast image generation
+    const response = await ai.models.generateContent({
+      model: 'gemini-2.5-flash-image',
+      contents: imagePrompt,
+      config: {
+        responseModalities: ['Image'],
+        imageConfig: {
+          aspectRatio: '16:9',
+        },
+      },
     });
 
-    // gpt-image-1 returns base64 by default
-    const imageBase64 = result.data?.[0]?.b64_json;
+    // Extract image from response
+    const candidate = response.candidates?.[0];
+    const parts = candidate?.content?.parts;
+    
+    let imageData: string | null = null;
+    if (parts) {
+      for (const part of parts) {
+        if (part.inlineData?.data) {
+          imageData = part.inlineData.data;
+          break;
+        }
+      }
+    }
 
-    if (!imageBase64) {
+    if (!imageData) {
       throw new Error('No image data returned');
     }
 
-    console.log('✅ Image generated');
+    console.log('✅ Image generated (Nano Banana)');
 
     // Return as data URL for direct use in img src
     return NextResponse.json({
       success: true,
-      imageUrl: `data:image/png;base64,${imageBase64}`,
+      imageUrl: `data:image/png;base64,${imageData}`,
     });
   } catch (error: any) {
     console.error('Error generating image:', error);

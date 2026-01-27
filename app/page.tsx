@@ -721,9 +721,14 @@ export default function Home() {
 
         <div className="flex-1 max-w-2xl mx-auto w-full px-8 py-8 space-y-6">
           {/* Story Image */}
-          <div className="relative aspect-[16/9] rounded-2xl overflow-hidden bg-stone-200">
+          <div className="relative aspect-[16/9] rounded-2xl overflow-hidden bg-stone-100 border border-stone-200">
             {current?.imageLoading ? (
-              <div className="absolute inset-0 bg-gradient-to-r from-stone-200 via-stone-100 to-stone-200 animate-shimmer" />
+              <div className="absolute inset-0 flex flex-col items-center justify-center gap-3">
+                <div className="relative w-12 h-12">
+                  <div className="absolute inset-0 rounded-full border-2 border-stone-300 border-t-stone-500 animate-spin" />
+                </div>
+                <span className="text-sm text-stone-500 animate-pulse">Generating scene...</span>
+              </div>
             ) : current?.imageUrl ? (
               <img 
                 src={current.imageUrl} 
@@ -732,7 +737,7 @@ export default function Home() {
               />
             ) : (
               <div className="absolute inset-0 flex items-center justify-center text-stone-400">
-                <span className="text-sm">Image generating...</span>
+                <span className="text-xs">No image</span>
               </div>
             )}
           </div>
