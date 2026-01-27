@@ -4,12 +4,21 @@ import {
   SIMULATOR_SYSTEM_PROMPT,
   getSeedingPrompt,
   getSimulatorTurnPrompt,
+  getGoalScoringPrompt,
+  getAutopilotActionPrompt,
+  getAgentScoresPrompt,
 } from './prompts';
 import {
   WORLD_SEED_SCHEMA,
   TURN_RESULT_SCHEMA,
+  GOAL_SCORE_SCHEMA,
+  AUTOPILOT_ACTION_SCHEMA,
+  AGENT_SCORES_SCHEMA,
   type WorldSeedResult,
   type TurnResult,
+  type GoalScoreResult,
+  type AutopilotActionResult,
+  type AgentScoresResult,
 } from './schemas';
 
 
@@ -33,7 +42,7 @@ export class Simulator {
     console.log('🌍 Initializing...');
 
     const seedData = await this.apiClient.callSimulatorWithTool<WorldSeedResult>(
-      'Set up a simulation.',
+      'Set up a detailed simulation with rich context.',
       getSeedingPrompt(startingConditions, playerInfo),
       'initialize_world',
       'Initialize simulation',
@@ -57,11 +66,26 @@ export class Simulator {
     const state = this.world.getState();
     console.log(`\n🎬 Turn ${state.turn} → ${state.turn + 1}`);
 
+    // Build agents with their action history for context
+    const agentsWithHistory = state.agents.map(a => ({
+      id: a.id,
+      name: a.name,
+      type: a.type,
+      state: a.state,
+      actionHistory: a.actionHistory,
+    }));
+
     const turnResult = await this.apiClient.callSimulatorWithTool<TurnResult>(
       SIMULATOR_SYSTEM_PROMPT,
-      getSimulatorTurnPrompt(state.context, state.agents, intervention, playerAction),
+      getSimulatorTurnPrompt(
+        state.context, 
+        agentsWithHistory, 
+        intervention, 
+        playerAction,
+        state.history  // Pass recent history for context
+      ),
       'process_turn',
-      'Process turn',
+      'Process turn with detailed narration',
       TURN_RESULT_SCHEMA
     );
 
@@ -72,27 +96,103 @@ export class Simulator {
     console.log(`✅ Turn ${this.world.getState().turn} done in ${duration}s\n`);
   }
 
+  /**
+   * Score goal progress for conscious actor
+   */
+  async scoreGoal(
+    goal: string,
+    consciousActorId: string
+  ): Promise<GoalScoreResult> {
+    const state = this.world.getState();
+    const actor = state.agents.find(a => a.id === consciousActorId);
+    
+    if (!actor) {
+      return { score: 50, reasoning: 'Actor not found', keyFactors: [] };
+    }
+
+    const recentHistory = state.history.slice(-5).map(h => h.narration);
+
+    const result = await this.apiClient.callSimulatorWithTool<GoalScoreResult>(
+      'You objectively evaluate goal progress in simulations.',
+      getGoalScoringPrompt(goal, actor.name, actor.state, state.context, recentHistory),
+      'score_goal',
+      'Score goal progress',
+      GOAL_SCORE_SCHEMA
+    );
+
+    return result;
+  }
+
+  /**
+   * Score all agents on how well they're achieving their goals
+   */
+  async scoreAllAgents(): Promise<AgentScoresResult> {
+    const state = this.world.getState();
+    
+    const agents = state.agents.map(a => ({
+      id: a.id,
+      name: a.name,
+      state: a.state,
+    }));
+
+    const result = await this.apiClient.callSimulatorWithTool<AgentScoresResult>(
+      'You objectively evaluate how well each agent is achieving their goals.',
+      getAgentScoresPrompt(agents, state.context),
+      'score_agents',
+      'Score all agents',
+      AGENT_SCORES_SCHEMA
+    );
+
+    return result;
+  }
+
+  /**
+   * Get autopilot action for conscious actor
+   */
+  async getAutopilotAction(
+    goal: string,
+    consciousActorId: string
+  ): Promise<AutopilotActionResult> {
+    const state = this.world.getState();
+    const actor = state.agents.find(a => a.id === consciousActorId);
+    
+    if (!actor) {
+      return { action: 'Observe situation', reasoning: 'Actor not found' };
+    }
+
+    const otherAgents = state.agents
+      .filter(a => a.id !== consciousActorId)
+      .map(a => ({ name: a.name, state: a.state }));
+
+    const recentHistory = state.history.slice(-5).map(h => h.narration);
+
+    const result = await this.apiClient.callSimulatorWithTool<AutopilotActionResult>(
+      'You are a strategic actor in a simulation, choosing actions to achieve your goal.',
+      getAutopilotActionPrompt(goal, actor.name, actor.state, state.context, otherAgents, recentHistory),
+      'choose_action',
+      'Choose strategic action',
+      AUTOPILOT_ACTION_SCHEMA
+    );
+
+    return result;
+  }
 
   /**
    * Apply turn result to world state
    */
   private applyTurnResult(result: TurnResult): void {
-    // Validate result has required fields
     if (!result.narration || !result.context) {
       console.warn('⚠️ Turn result missing narration or context');
     }
 
-    // Update world context with headline
     if (result.context) {
-      this.world.updateContext(result.context, result.worldHeadline);
+      this.world.updateContext(result.context, result.worldHeadline || '');
     }
 
-    // Add turn entry with headline and narration
     if (result.narration) {
       this.world.addTurnEntry(result.headline || 'Turn complete', result.narration);
     }
 
-    // Update agents with actions
     if (result.agentUpdates && Array.isArray(result.agentUpdates)) {
       for (const update of result.agentUpdates) {
         if (update.agentId && update.state) {
@@ -101,7 +201,6 @@ export class Simulator {
       }
     }
 
-    // Add new agents
     if (result.newAgents && Array.isArray(result.newAgents)) {
       for (const agent of result.newAgents) {
         if (agent.name && agent.state) {
@@ -114,7 +213,6 @@ export class Simulator {
       }
     }
 
-    // Remove agents
     if (result.removedAgents && Array.isArray(result.removedAgents)) {
       for (const id of result.removedAgents) {
         this.world.removeAgent(id);
@@ -122,9 +220,6 @@ export class Simulator {
     }
   }
 
-  /**
-   * Get current world state manager
-   */
   getWorld(): WorldStateManager {
     return this.world;
   }

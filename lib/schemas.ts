@@ -77,6 +77,59 @@ export const TURN_RESULT_SCHEMA = {
   required: ['headline', 'narration', 'worldHeadline', 'context', 'agentUpdates'],
 };
 
+export const GOAL_SCORE_SCHEMA = {
+  type: 'object',
+  properties: {
+    score: {
+      type: 'number',
+      description: 'Score from 0-100 indicating progress toward the goal. 0=no progress/worse, 50=neutral, 100=goal achieved'
+    },
+    reasoning: {
+      type: 'string',
+      description: 'Brief explanation of why this score was given (1-2 sentences)'
+    },
+    keyFactors: {
+      type: 'array',
+      items: { type: 'string' },
+      description: 'Top 2-3 factors affecting the score (positive or negative)'
+    }
+  },
+  required: ['score', 'reasoning', 'keyFactors'],
+};
+
+export const AUTOPILOT_ACTION_SCHEMA = {
+  type: 'object',
+  properties: {
+    action: {
+      type: 'string',
+      description: 'The action the conscious actor should take this turn to maximize goal progress'
+    },
+    reasoning: {
+      type: 'string',
+      description: 'Brief strategic reasoning for this action (1 sentence)'
+    }
+  },
+  required: ['action', 'reasoning'],
+};
+
+export const AGENT_SCORES_SCHEMA = {
+  type: 'object',
+  properties: {
+    scores: {
+      type: 'array',
+      items: {
+        type: 'object',
+        properties: {
+          agentId: { type: 'string', description: 'The agent ID' },
+          score: { type: 'number', description: 'Score 0-100 for how well this agent is achieving their goals' },
+        },
+        required: ['agentId', 'score'],
+      },
+    },
+  },
+  required: ['scores'],
+};
+
 export interface WorldSeedResult {
   context: string;
   agents: Array<{
@@ -102,4 +155,22 @@ export interface TurnResult {
     state: string;
   }>;
   removedAgents?: string[];
+}
+
+export interface GoalScoreResult {
+  score: number;
+  reasoning: string;
+  keyFactors: string[];
+}
+
+export interface AutopilotActionResult {
+  action: string;
+  reasoning: string;
+}
+
+export interface AgentScoresResult {
+  scores: Array<{
+    agentId: string;
+    score: number;
+  }>;
 }
