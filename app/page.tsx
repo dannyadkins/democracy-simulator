@@ -3,7 +3,7 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { 
   Bot, User, Building2, Landmark, Factory, Radio, Users, Shield,
-  CircleDot
+  CircleDot, ChevronRight, Zap
 } from 'lucide-react';
 
 // ═══════════════════════════════════════════════════════════════
@@ -34,37 +34,33 @@ interface Node {
   scoring: boolean;
   action?: string;
   agentScores?: Record<string, number>;
+  imageUrl?: string;
+  imageLoading?: boolean;
 }
 
 // ═══════════════════════════════════════════════════════════════
-// ICONS
+// COMPONENTS
 // ═══════════════════════════════════════════════════════════════
 
-const TYPE_CONFIG: Record<string, { icon: typeof Bot; bg: string; fg: string }> = {
-  'AI': { icon: Bot, bg: 'bg-violet-100', fg: 'text-violet-600' },
-  'Human': { icon: User, bg: 'bg-sky-100', fg: 'text-sky-600' },
-  'Organization': { icon: Building2, bg: 'bg-emerald-100', fg: 'text-emerald-600' },
-  'Government': { icon: Landmark, bg: 'bg-rose-100', fg: 'text-rose-600' },
-  'Corporation': { icon: Factory, bg: 'bg-amber-100', fg: 'text-amber-600' },
-  'Media': { icon: Radio, bg: 'bg-orange-100', fg: 'text-orange-600' },
-  'Labor': { icon: Users, bg: 'bg-teal-100', fg: 'text-teal-600' },
-  'Military': { icon: Shield, bg: 'bg-slate-200', fg: 'text-slate-600' },
+const TYPE_ICONS: Record<string, typeof Bot> = {
+  'AI': Bot,
+  'Human': User,
+  'Organization': Building2,
+  'Government': Landmark,
+  'Corporation': Factory,
+  'Media': Radio,
+  'Labor': Users,
+  'Military': Shield,
 };
 
-function AgentIcon({ type, size = 20 }: { type: string; size?: number }) {
-  const config = TYPE_CONFIG[type] || { icon: CircleDot, bg: 'bg-neutral-100', fg: 'text-neutral-500' };
-  const Icon = config.icon;
-  const padding = size >= 20 ? 'p-2' : 'p-1.5';
+function AgentIcon({ type, size = 18 }: { type: string; size?: number }) {
+  const Icon = TYPE_ICONS[type] || CircleDot;
   return (
-    <div className={`${config.bg} ${config.fg} ${padding} rounded-lg shrink-0`}>
-      <Icon size={size} strokeWidth={1.5} />
+    <div className="w-9 h-9 rounded-full bg-stone-100 flex items-center justify-center shrink-0">
+      <Icon size={size} className="text-stone-500" strokeWidth={1.5} />
     </div>
   );
 }
-
-// ═══════════════════════════════════════════════════════════════
-// RICH TEXT
-// ═══════════════════════════════════════════════════════════════
 
 function RichText({ children, className = '' }: { children: string; className?: string }) {
   if (!children) return null;
@@ -94,7 +90,7 @@ function RichText({ children, className = '' }: { children: string; className?: 
           result.push(<span key={key++}>{remaining.slice(0, nextMatch.index)}</span>);
         }
         if (nextMatch.type === 'bold') {
-          result.push(<strong key={key++} className="font-semibold">{nextMatch.match[1]}</strong>);
+          result.push(<strong key={key++} className="font-medium text-stone-900">{nextMatch.match[1]}</strong>);
         } else {
           result.push(<em key={key++} className="italic">{nextMatch.match[1]}</em>);
         }
@@ -108,6 +104,16 @@ function RichText({ children, className = '' }: { children: string; className?: 
   };
   
   return <span className={className}>{renderText(children)}</span>;
+}
+
+function Score({ value, size = 'sm' }: { value: number | null | undefined; size?: 'sm' | 'lg' }) {
+  if (value === null || value === undefined) return null;
+  const color = value >= 70 ? 'text-emerald-600' : value >= 40 ? 'text-stone-600' : 'text-rose-600';
+  return (
+    <span className={`font-mono ${color} ${size === 'lg' ? 'text-3xl font-light' : 'text-xs'}`}>
+      {value}
+    </span>
+  );
 }
 
 // ═══════════════════════════════════════════════════════════════
@@ -286,17 +292,6 @@ DYNAMICS:
 ];
 
 // ═══════════════════════════════════════════════════════════════
-// SCORE
-// ═══════════════════════════════════════════════════════════════
-
-function ScoreBadge({ score, scoring, size = 'sm' }: { score: number | null; scoring?: boolean; size?: 'sm' | 'lg' }) {
-  const s = size === 'lg' ? 'text-2xl font-bold' : 'text-xs font-semibold px-2 py-0.5 rounded-full';
-  const color = scoring ? 'text-neutral-400' : score === null ? 'text-neutral-400' : score >= 70 ? 'text-emerald-600' : score >= 40 ? 'text-amber-600' : 'text-red-600';
-  const bg = size === 'sm' ? (scoring ? 'bg-neutral-100' : score === null ? 'bg-neutral-100' : score >= 70 ? 'bg-emerald-50' : score >= 40 ? 'bg-amber-50' : 'bg-red-50') : '';
-  return <span className={`${s} ${color} ${bg}`}>{scoring ? '...' : score ?? '—'}</span>;
-}
-
-// ═══════════════════════════════════════════════════════════════
 // MAIN
 // ═══════════════════════════════════════════════════════════════
 
@@ -377,6 +372,33 @@ export default function Home() {
     }
   };
 
+  const fetchImage = async (nodeId: string, headline: string, narration: string) => {
+    // Mark as loading
+    setNodes(prev => prev.map(n => n.id === nodeId ? { ...n, imageLoading: true } : n));
+    
+    try {
+      const res = await fetch('/api/simulation/image', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ headline, narration }),
+      });
+      if (!res.ok) {
+        console.error('Image API failed:', res.status);
+        setNodes(prev => prev.map(n => n.id === nodeId ? { ...n, imageLoading: false } : n));
+        return;
+      }
+      const data = await res.json();
+      if (data.success && data.imageUrl) {
+        setNodes(prev => prev.map(n => n.id === nodeId ? { ...n, imageUrl: data.imageUrl, imageLoading: false } : n));
+      } else {
+        setNodes(prev => prev.map(n => n.id === nodeId ? { ...n, imageLoading: false } : n));
+      }
+    } catch (e) {
+      console.error('Image fetch error:', e);
+      setNodes(prev => prev.map(n => n.id === nodeId ? { ...n, imageLoading: false } : n));
+    }
+  };
+
   const init = async () => {
     if (!scenario.trim()) return;
     setLoading(true);
@@ -403,16 +425,22 @@ export default function Home() {
       const pid = pName ? s.agents.find(a => a.name.toLowerCase().includes(pName.toLowerCase()))?.id || null : null;
       const g = pGoal || 'Maximize your influence';
 
-      // Fetch initial agent scores (blocking)
       const agentScores = await fetchAgentScores(s);
       const playerScore = pid && agentScores[pid] ? agentScores[pid] : null;
 
-      const root: Node = { id: uid(), parent: null, state: s, score: playerScore, scoring: false, agentScores };
+      const rootId = uid();
+      const root: Node = { id: rootId, parent: null, state: s, score: playerScore, scoring: false, agentScores, imageLoading: true };
       setNodes([root]);
-      setCurrentId(root.id);
+      setCurrentId(rootId);
       setPlayerId(pid);
       setGoal(g);
       setStarted(true);
+
+      // Generate image for initial state (non-blocking)
+      const story = s.history[s.history.length - 1];
+      if (story) {
+        fetchImage(rootId, story.headline, story.narration);
+      }
     } catch (e: any) { setError(e.message || 'Failed'); }
     finally { setLoading(false); }
   };
@@ -423,7 +451,6 @@ export default function Home() {
     setError('');
 
     try {
-      // Execute turn
       const res = await fetch('/api/simulation/turn', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -437,26 +464,30 @@ export default function Home() {
       if (!data.success) throw new Error(data.error || 'Turn failed');
 
       const newState = data.state as SimState;
-
-      // Fetch all agent scores (blocking)
       const agentScores = await fetchAgentScores(newState);
-      
-      // Get player score from agent scores if available
       const playerScore = playerId && agentScores[playerId] ? agentScores[playerId] : null;
 
+      const newNodeId = uid();
       const newNode: Node = { 
-        id: uid(), 
+        id: newNodeId, 
         parent: currentId, 
         state: newState, 
         score: playerScore, 
         scoring: false, 
         action: playerAction,
-        agentScores 
+        agentScores,
+        imageLoading: true
       };
 
       setNodes(prev => [...prev, newNode]);
-      setCurrentId(newNode.id);
+      setCurrentId(newNodeId);
       setAction('');
+
+      // Generate image for new turn (non-blocking)
+      const story = newState.history[newState.history.length - 1];
+      if (story) {
+        fetchImage(newNodeId, story.headline, story.narration);
+      }
     } catch (e: any) { setError(e.message || 'Failed'); setAuto(false); }
     finally { setLoading(false); }
   };
@@ -487,178 +518,258 @@ export default function Home() {
   }, [auto, loading, currentId, isLeaf]);
 
   // ═══════════════════════════════════════════════════════════════
-  // SETUP
+  // SETUP SCREEN
   // ═══════════════════════════════════════════════════════════════
 
   if (!started) {
     return (
-      <div className="min-h-screen bg-neutral-50 flex items-center justify-center p-6">
-        <div className="w-full max-w-lg space-y-6">
-          <div className="text-center">
-            <h1 className="text-3xl font-semibold tracking-tight text-neutral-900">Power Dynamics</h1>
-            <p className="mt-2 text-neutral-500">Simulate emergent power struggles</p>
+      <div className="min-h-screen bg-stone-50 flex items-center justify-center p-6">
+        <div className="w-full max-w-xl space-y-8">
+          <div className="text-center space-y-2">
+            <h1 className="text-2xl font-light text-stone-900 tracking-tight">Power Dynamics Simulator</h1>
+            <p className="text-stone-500 text-sm">Model emergent power struggles between agents</p>
           </div>
 
           <div className="flex flex-wrap justify-center gap-2">
             {PRESETS.map((p, i) => (
-              <button key={i} onClick={() => setScenario(p.scenario)} className={`px-3 py-1.5 rounded-full text-sm font-medium transition ${scenario === p.scenario ? 'bg-neutral-900 text-white' : 'bg-white text-neutral-600 border border-neutral-200 hover:border-neutral-300'}`}>
+              <button 
+                key={i} 
+                onClick={() => setScenario(p.scenario)} 
+                className={`px-3 py-1.5 rounded-full text-sm transition-all ${
+                  scenario === p.scenario 
+                    ? 'bg-stone-900 text-white' 
+                    : 'bg-white text-stone-600 border border-stone-200 hover:border-stone-300 hover:bg-stone-50'
+                }`}
+              >
                 {p.name}
               </button>
             ))}
           </div>
 
-          <div className="bg-white rounded-xl border border-neutral-200 p-1">
-            <textarea value={scenario} onChange={e => setScenario(e.target.value)} placeholder="Describe the scenario..." className="w-full h-32 p-4 resize-none focus:outline-none text-neutral-800 placeholder:text-neutral-400" />
+          <div className="bg-white rounded-2xl shadow-sm border border-stone-200 overflow-hidden">
+            <textarea 
+              value={scenario} 
+              onChange={e => setScenario(e.target.value)} 
+              placeholder="Describe the scenario..." 
+              className="w-full h-40 p-5 resize-none focus:outline-none text-stone-700 placeholder:text-stone-400 text-sm leading-relaxed" 
+            />
           </div>
 
-          <div className="bg-white rounded-xl border border-neutral-200 p-5 space-y-4">
-            <p className="text-xs font-medium text-neutral-400 uppercase tracking-wider">Play as a character</p>
-            <div className="flex gap-3">
-              <input value={pName} onChange={e => setPName(e.target.value)} placeholder="Name" className="flex-1 px-4 py-2.5 rounded-lg bg-neutral-50 border border-neutral-200 text-sm focus:outline-none focus:border-neutral-400" />
-              <input value={pRole} onChange={e => setPRole(e.target.value)} placeholder="Role" className="flex-1 px-4 py-2.5 rounded-lg bg-neutral-50 border border-neutral-200 text-sm focus:outline-none focus:border-neutral-400" />
+          <div className="bg-white rounded-2xl shadow-sm border border-stone-200 p-5 space-y-4">
+            <p className="text-xs font-medium text-stone-400 uppercase tracking-wider">Play as a character (optional)</p>
+            <div className="grid grid-cols-2 gap-3">
+              <input 
+                value={pName} 
+                onChange={e => setPName(e.target.value)} 
+                placeholder="Your name" 
+                className="px-4 py-3 rounded-xl bg-stone-50 border border-stone-200 text-sm focus:outline-none focus:border-stone-400 focus:bg-white transition-colors" 
+              />
+              <input 
+                value={pRole} 
+                onChange={e => setPRole(e.target.value)} 
+                placeholder="Your role" 
+                className="px-4 py-3 rounded-xl bg-stone-50 border border-stone-200 text-sm focus:outline-none focus:border-stone-400 focus:bg-white transition-colors" 
+              />
             </div>
-            {pName && <input value={pGoal} onChange={e => setPGoal(e.target.value)} placeholder="Your goal..." className="w-full px-4 py-2.5 rounded-lg bg-neutral-50 border border-neutral-200 text-sm focus:outline-none focus:border-neutral-400" />}
+            {pName && (
+              <input 
+                value={pGoal} 
+                onChange={e => setPGoal(e.target.value)} 
+                placeholder="Your goal (e.g., 'Amass power and influence')" 
+                className="w-full px-4 py-3 rounded-xl bg-stone-50 border border-stone-200 text-sm focus:outline-none focus:border-stone-400 focus:bg-white transition-colors" 
+              />
+            )}
           </div>
 
-          <button onClick={init} disabled={loading || !scenario.trim()} className="w-full py-4 bg-neutral-900 text-white rounded-xl font-medium disabled:opacity-40 hover:bg-neutral-800 transition">
-            {loading ? 'Creating...' : 'Begin'}
+          <button 
+            onClick={init} 
+            disabled={loading || !scenario.trim()} 
+            className="w-full py-4 bg-stone-900 text-white rounded-2xl font-medium disabled:opacity-40 hover:bg-stone-800 transition-colors"
+          >
+            {loading ? 'Creating world...' : 'Begin Simulation'}
           </button>
 
-          {error && <p className="text-center text-red-500 text-sm">{error}</p>}
+          {error && <p className="text-center text-rose-600 text-sm">{error}</p>}
         </div>
       </div>
     );
   }
 
   // ═══════════════════════════════════════════════════════════════
-  // GAME
+  // GAME SCREEN
   // ═══════════════════════════════════════════════════════════════
 
   const timeline = getPath();
 
   return (
-    <div className="min-h-screen bg-neutral-100 flex">
+    <div className="min-h-screen bg-stone-100 flex">
       {/* SIDEBAR */}
-      <aside className="w-80 bg-white border-r border-neutral-200 flex flex-col shrink-0 sticky top-0 h-screen">
-        <div className="p-4 border-b border-neutral-100 flex items-center justify-between">
-          <span className="font-semibold text-neutral-900">Power Dynamics</span>
-          <button onClick={() => { setStarted(false); setNodes([]); }} className="text-xs text-neutral-400 hover:text-neutral-600">Reset</button>
+      <aside className="w-72 bg-white border-r border-stone-200 flex flex-col shrink-0 sticky top-0 h-screen">
+        <div className="p-5 border-b border-stone-100">
+          <div className="flex items-center justify-between">
+            <span className="font-medium text-stone-900">Power Dynamics</span>
+            <button 
+              onClick={() => { setStarted(false); setNodes([]); setAuto(false); }} 
+              className="text-xs text-stone-400 hover:text-stone-600 transition-colors"
+            >
+              Reset
+            </button>
+          </div>
         </div>
 
         {playerId && (
-          <div className="p-4 border-b border-neutral-100">
-            <div className="text-xs font-medium text-neutral-400 uppercase tracking-wider mb-1">Your Goal</div>
-            <p className="text-sm text-neutral-700 mb-3">{goal}</p>
-            <div className="flex items-center gap-3">
-              <ScoreBadge score={current?.score ?? null} scoring={current?.scoring} size="lg" />
-              <div className="flex-1 h-2 bg-neutral-100 rounded-full overflow-hidden">
-                <div className={`h-full transition-all duration-500 ${current?.score == null ? 'bg-neutral-200' : current.score >= 70 ? 'bg-emerald-500' : current.score >= 40 ? 'bg-amber-500' : 'bg-red-500'}`} style={{ width: `${current?.score ?? 0}%` }} />
+          <div className="p-5 border-b border-stone-100 space-y-3">
+            <p className="text-xs text-stone-400 uppercase tracking-wider font-medium">Your Goal</p>
+            <p className="text-sm text-stone-700 leading-relaxed">{goal}</p>
+            <div className="flex items-center gap-4">
+              <Score value={current?.score} size="lg" />
+              <div className="flex-1 h-1.5 bg-stone-100 rounded-full overflow-hidden">
+                <div 
+                  className="h-full bg-stone-900 transition-all duration-700 ease-out" 
+                  style={{ width: `${current?.score ?? 0}%` }} 
+                />
               </div>
             </div>
           </div>
         )}
 
         <div className="flex-1 overflow-y-auto">
-          <div className="p-4">
-            <div className="flex items-center justify-between mb-3">
-              <span className="text-xs font-medium text-neutral-400 uppercase tracking-wider">Timeline</span>
-              {!isLeaf && (
-                <button onClick={goToLatest} className="text-xs text-violet-600 hover:underline">Latest →</button>
-              )}
-            </div>
-            <div className="space-y-1">
-              {timeline.map((node) => {
-                const isCurrent = node.id === currentId;
-                const headline = node.state.history[node.state.history.length - 1]?.headline || 'Start';
-                const siblings = getSiblings(node);
-                const hasForks = siblings.length > 0;
+          <div className="p-5 space-y-1">
+            {timeline.map((node, idx) => {
+              const isCurrent = node.id === currentId;
+              const headline = node.state.history[node.state.history.length - 1]?.headline || 'Start';
+              const siblings = getSiblings(node);
 
-                return (
-                  <div key={node.id}>
-                    <button onClick={() => { setCurrentId(node.id); setAuto(false); }} className={`w-full text-left px-3 py-2.5 rounded-lg text-sm transition flex items-center gap-2 ${isCurrent ? 'bg-neutral-900 text-white' : 'hover:bg-neutral-50'}`}>
-                      <span className="font-mono text-xs shrink-0 w-5 text-neutral-400">{node.state.turn}</span>
-                      <span className="truncate flex-1"><RichText>{headline}</RichText></span>
-                      {playerId && <ScoreBadge score={node.score} scoring={node.scoring} size="sm" />}
-                    </button>
-                    
-                    {hasForks && (
-                      <div className="ml-5 pl-3 border-l-2 border-violet-200 py-1">
-                        <div className="text-xs text-violet-600 font-medium mb-1">{siblings.length} alternate path{siblings.length > 1 ? 's' : ''}</div>
-                        {siblings.map(sib => (
-                          <button key={sib.id} onClick={() => { setCurrentId(sib.id); setAuto(false); }} className="w-full text-left px-2 py-1.5 rounded text-xs text-violet-700 hover:bg-violet-50 flex items-center gap-2">
-                            <span className="truncate">{sib.action || 'Different action'}</span>
-                            {playerId && sib.score !== null && <span className={`shrink-0 ${sib.score >= 70 ? 'text-emerald-600' : sib.score >= 40 ? 'text-amber-600' : 'text-red-600'}`}>{sib.score}</span>}
-                          </button>
-                        ))}
-                      </div>
+              return (
+                <div key={node.id}>
+                  <button 
+                    onClick={() => { setCurrentId(node.id); setAuto(false); }} 
+                    className={`w-full text-left px-3 py-2 rounded-lg text-sm transition-all flex items-center gap-2 group ${
+                      isCurrent 
+                        ? 'bg-stone-900 text-white' 
+                        : 'hover:bg-stone-50 text-stone-600'
+                    }`}
+                  >
+                    <span className={`font-mono text-xs w-4 shrink-0 ${isCurrent ? 'text-stone-400' : 'text-stone-400'}`}>
+                      {node.state.turn}
+                    </span>
+                    <span className="truncate flex-1">
+                      <RichText>{headline}</RichText>
+                    </span>
+                    {playerId && node.score !== null && (
+                      <span className={`text-xs font-mono ${isCurrent ? 'text-stone-400' : ''}`}>
+                        {node.score}
+                      </span>
                     )}
-                  </div>
-                );
-              })}
-            </div>
+                  </button>
+                  
+                  {siblings.length > 0 && (
+                    <div className="ml-6 pl-3 border-l border-stone-200 py-1 space-y-0.5">
+                      {siblings.map(sib => (
+                        <button 
+                          key={sib.id} 
+                          onClick={() => { setCurrentId(sib.id); setAuto(false); }} 
+                          className="w-full text-left px-2 py-1 rounded text-xs text-stone-500 hover:bg-stone-50 hover:text-stone-700 transition-colors truncate"
+                        >
+                          {sib.action || 'Alt'}
+                        </button>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              );
+            })}
           </div>
         </div>
+
+        {!isLeaf && (
+          <div className="p-4 border-t border-stone-100">
+            <button 
+              onClick={goToLatest} 
+              className="w-full text-center text-xs text-stone-500 hover:text-stone-700 transition-colors py-2"
+            >
+              Go to latest →
+            </button>
+          </div>
+        )}
       </aside>
 
       {/* MAIN */}
-      <main className="flex-1 min-h-screen flex flex-col">
-        <header className="sticky top-0 z-40 bg-white/90 backdrop-blur border-b border-neutral-200">
-          <div className="h-14 px-6 flex items-center justify-between">
-            <div className="flex items-center gap-3">
-              <span className="text-lg font-semibold text-neutral-900">Turn {currentTurn}</span>
-              {!isLeaf && (
-                <button onClick={goToLatest} className="text-xs bg-amber-100 text-amber-700 px-2 py-1 rounded-full hover:bg-amber-200 transition">
-                  Viewing history · Go to latest →
-                </button>
-              )}
-            </div>
-          </div>
-          {/* Loading bar - fixed height to prevent layout shift */}
-          <div className="h-1 bg-neutral-100">
-            {loading && (
-              <div className="h-full bg-blue-500 origin-left animate-loading-bar" />
+      <main className="flex-1 min-h-screen flex flex-col bg-stone-50">
+        {/* Header with loading */}
+        <header className="sticky top-0 z-40 bg-white/80 backdrop-blur-sm border-b border-stone-200">
+          <div className="h-14 px-8 flex items-center">
+            <span className="text-sm text-stone-500">Turn</span>
+            <span className="text-sm font-medium text-stone-900 ml-1.5">{currentTurn}</span>
+            {!isLeaf && (
+              <span className="ml-3 text-xs text-amber-600 bg-amber-50 px-2 py-0.5 rounded">
+                Viewing history
+              </span>
             )}
+          </div>
+          <div className="h-0.5 bg-stone-100">
+            {loading && <div className="h-full bg-stone-400 animate-loading-bar" />}
           </div>
         </header>
 
         {error && (
-          <div className="mx-6 mt-4 px-4 py-3 bg-red-50 border border-red-200 rounded-lg text-red-700 text-sm flex justify-between">
+          <div className="mx-8 mt-6 px-4 py-3 bg-rose-50 border border-rose-200 rounded-xl text-rose-700 text-sm flex justify-between items-center">
             <span>{error}</span>
-            <button onClick={() => setError('')}>×</button>
+            <button onClick={() => setError('')} className="text-rose-400 hover:text-rose-600">×</button>
           </div>
         )}
 
-        <div className="max-w-3xl mx-auto px-6 py-8 space-y-6">
-          {/* Story */}
-          <article className="bg-white rounded-xl border border-neutral-200 p-8">
-            <h1 className="text-2xl font-bold text-neutral-900 leading-tight mb-4">
+        <div className="flex-1 max-w-2xl mx-auto w-full px-8 py-8 space-y-6">
+          {/* Story Image */}
+          <div className="relative aspect-[16/9] rounded-2xl overflow-hidden bg-stone-200">
+            {current?.imageLoading ? (
+              <div className="absolute inset-0 bg-gradient-to-r from-stone-200 via-stone-100 to-stone-200 animate-shimmer" />
+            ) : current?.imageUrl ? (
+              <img 
+                src={current.imageUrl} 
+                alt={story?.headline || 'Scene'} 
+                className="w-full h-full object-cover"
+              />
+            ) : (
+              <div className="absolute inset-0 flex items-center justify-center text-stone-400">
+                <span className="text-sm">Image generating...</span>
+              </div>
+            )}
+          </div>
+
+          {/* Story Text */}
+          <article className="space-y-4">
+            <h1 className="text-xl font-medium text-stone-900 leading-snug">
               <RichText>{story?.headline || 'Simulation Ready'}</RichText>
             </h1>
-            <div className="text-neutral-600 leading-relaxed space-y-3">
+            <div className="text-stone-600 leading-relaxed space-y-3 text-[15px]">
               {(story?.narration || state?.context || '').split('\n').filter(Boolean).map((para, i) => (
                 <p key={i}><RichText>{para}</RichText></p>
               ))}
             </div>
           </article>
 
-          {/* Player Input + Autopilot (together) */}
+          {/* Player Action */}
           {playerId && player && (
-            <div className="bg-white rounded-xl border border-neutral-200 p-5">
-              <div className="flex items-start gap-3 mb-4">
+            <div className="bg-white rounded-2xl border border-stone-200 p-5 shadow-sm">
+              <div className="flex items-center gap-3 mb-4">
                 <AgentIcon type={player.type} />
                 <div className="flex-1">
-                  <span className="font-semibold text-neutral-900">{player.name}</span>
-                  <p className="text-sm text-neutral-500 mt-0.5"><RichText>{player.state}</RichText></p>
+                  <span className="font-medium text-stone-900">{player.name}</span>
+                  <p className="text-xs text-stone-500 mt-0.5 line-clamp-1">{player.state}</p>
                 </div>
+                <Score value={current?.agentScores?.[player.id]} />
               </div>
               
               {auto ? (
-                <div className="flex items-center justify-between bg-violet-50 rounded-lg p-3">
+                <div className="flex items-center justify-between bg-stone-50 rounded-xl p-3">
                   <div className="flex items-center gap-2">
-                    <div className="w-2 h-2 bg-violet-500 rounded-full animate-pulse" />
-                    <span className="text-sm text-violet-700 font-medium">Autopilot running</span>
+                    <Zap size={14} className="text-stone-500 animate-pulse" />
+                    <span className="text-sm text-stone-600">Autopilot active</span>
                   </div>
-                  <button onClick={() => setAuto(false)} className="text-sm text-violet-600 hover:underline">Stop</button>
+                  <button onClick={() => setAuto(false)} className="text-xs text-stone-500 hover:text-stone-700 transition-colors">
+                    Stop
+                  </button>
                 </div>
               ) : (
                 <div className="flex gap-2">
@@ -669,68 +780,69 @@ export default function Home() {
                     placeholder="What do you do?"
                     disabled={loading}
                     autoFocus
-                    className="flex-1 px-4 py-3 rounded-lg bg-neutral-50 border border-neutral-200 focus:outline-none focus:border-neutral-400 focus:bg-white disabled:opacity-50"
+                    className="flex-1 px-4 py-2.5 rounded-xl bg-stone-50 border border-stone-200 text-sm focus:outline-none focus:border-stone-400 focus:bg-white disabled:opacity-50 transition-colors"
                   />
-                  <button onClick={() => turn(action)} disabled={loading || !action.trim()} className="px-5 py-3 bg-neutral-900 text-white font-medium rounded-lg hover:bg-neutral-800 disabled:opacity-40 transition">
+                  <button 
+                    onClick={() => turn(action)} 
+                    disabled={loading || !action.trim()} 
+                    className="px-4 py-2.5 bg-stone-900 text-white text-sm font-medium rounded-xl hover:bg-stone-800 disabled:opacity-40 transition-colors"
+                  >
                     Go
                   </button>
-                  <button onClick={() => setAuto(true)} disabled={loading} className="px-4 py-3 bg-violet-100 text-violet-700 font-medium rounded-lg hover:bg-violet-200 disabled:opacity-40 transition" title="Let AI play">
-                    Auto
+                  <button 
+                    onClick={() => setAuto(true)} 
+                    disabled={loading} 
+                    className="px-3 py-2.5 bg-stone-100 text-stone-600 rounded-xl hover:bg-stone-200 disabled:opacity-40 transition-colors"
+                    title="Let AI play"
+                  >
+                    <Zap size={16} />
                   </button>
                 </div>
               )}
             </div>
           )}
 
-          {/* No player - just next turn */}
+          {/* No player */}
           {!playerId && (
-            <button onClick={() => turn()} disabled={loading} className="w-full py-4 bg-neutral-900 text-white font-semibold rounded-xl hover:bg-neutral-800 disabled:opacity-50 transition">
-              {loading ? 'Simulating...' : 'Next Turn →'}
+            <button 
+              onClick={() => turn()} 
+              disabled={loading} 
+              className="w-full py-3.5 bg-stone-900 text-white text-sm font-medium rounded-xl hover:bg-stone-800 disabled:opacity-50 transition-colors flex items-center justify-center gap-2"
+            >
+              {loading ? 'Simulating...' : <>Next Turn <ChevronRight size={16} /></>}
             </button>
           )}
 
           {/* Agents */}
-          <div className="bg-white rounded-xl border border-neutral-200 overflow-hidden">
-            <div className="px-5 py-3 border-b border-neutral-100 bg-neutral-50 flex items-center justify-between">
-              <span className="font-semibold text-neutral-700 text-sm">Agents</span>
-              <span className="text-xs text-neutral-400">{state?.agents.length}</span>
-            </div>
-            <div className="divide-y divide-neutral-100">
+          <div className="space-y-2">
+            <p className="text-xs text-stone-400 uppercase tracking-wider font-medium px-1">Agents</p>
+            <div className="bg-white rounded-2xl border border-stone-200 divide-y divide-stone-100 shadow-sm overflow-hidden">
               {state?.agents.map(agent => {
                 const isP = agent.id === playerId;
                 const thisAction = agent.actionHistory?.find(h => h.turn === currentTurn);
-                const lastAction = agent.actionHistory?.[agent.actionHistory.length - 1];
-                const actionToShow = thisAction || lastAction;
                 const agentScore = current?.agentScores?.[agent.id];
                 
                 return (
-                  <button key={agent.id} onClick={() => setViewAgent(agent)} className={`w-full px-5 py-4 text-left hover:bg-neutral-50 transition ${isP ? 'bg-violet-50' : ''}`}>
-                    <div className="flex items-start gap-3">
-                      <div className="relative">
-                        <AgentIcon type={agent.type} />
-                        {agentScore !== undefined && (
-                          <div className={`absolute -bottom-1 -right-1 w-5 h-5 rounded-full text-[10px] font-bold flex items-center justify-center border-2 border-white ${
-                            agentScore >= 70 ? 'bg-emerald-500 text-white' : 
-                            agentScore >= 40 ? 'bg-amber-500 text-white' : 
-                            'bg-red-500 text-white'
-                          }`}>
-                            {agentScore}
-                          </div>
-                        )}
+                  <button 
+                    key={agent.id} 
+                    onClick={() => setViewAgent(agent)} 
+                    className={`w-full px-4 py-3 text-left hover:bg-stone-50 transition-colors flex items-center gap-3 ${isP ? 'bg-stone-50' : ''}`}
+                  >
+                    <AgentIcon type={agent.type} size={16} />
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center gap-2">
+                        <span className="text-sm font-medium text-stone-800 truncate">
+                          {agent.name}
+                          {isP && <span className="text-stone-400 font-normal ml-1">(you)</span>}
+                        </span>
                       </div>
-                      <div className="flex-1 min-w-0">
-                        <div className="flex items-center gap-2 mb-1">
-                          <span className="font-medium text-neutral-800">{agent.name}{isP && <span className="text-violet-600 text-xs ml-1">(you)</span>}</span>
-                          <span className="text-xs text-neutral-400">{agent.type}</span>
-                        </div>
-                        {actionToShow && (
-                          <p className={`text-sm mb-1 ${thisAction ? 'text-emerald-700' : 'text-neutral-500'}`}>
-                            {thisAction ? '→ ' : 'Last: '}<RichText>{actionToShow.action}</RichText>
-                          </p>
-                        )}
-                        <p className="text-sm text-neutral-500 line-clamp-1"><RichText>{agent.state}</RichText></p>
-                      </div>
+                      {thisAction && (
+                        <p className="text-xs text-stone-500 truncate mt-0.5">
+                          → <RichText>{thisAction.action}</RichText>
+                        </p>
+                      )}
                     </div>
+                    <Score value={agentScore} />
                   </button>
                 );
               })}
@@ -741,29 +853,41 @@ export default function Home() {
 
       {/* Agent Modal */}
       {viewAgent && (
-        <div className="fixed inset-0 bg-black/40 backdrop-blur-sm z-50 flex items-center justify-center p-4" onClick={() => setViewAgent(null)}>
-          <div className="bg-white rounded-xl shadow-2xl max-w-md w-full overflow-hidden" onClick={e => e.stopPropagation()}>
-            <div className={`px-5 py-4 flex items-start gap-3 ${viewAgent.id === playerId ? 'bg-violet-50' : 'bg-neutral-50'}`}>
-              <AgentIcon type={viewAgent.type} size={28} />
+        <div 
+          className="fixed inset-0 bg-black/30 backdrop-blur-sm z-50 flex items-center justify-center p-4" 
+          onClick={() => setViewAgent(null)}
+        >
+          <div 
+            className="bg-white rounded-2xl shadow-2xl max-w-md w-full overflow-hidden" 
+            onClick={e => e.stopPropagation()}
+          >
+            <div className="px-5 py-4 flex items-center gap-3 border-b border-stone-100">
+              <AgentIcon type={viewAgent.type} />
               <div className="flex-1">
-                <h2 className="font-bold text-lg">{viewAgent.name}</h2>
-                <p className="text-sm text-neutral-500">{viewAgent.type}</p>
+                <h2 className="font-medium text-stone-900">{viewAgent.name}</h2>
+                <p className="text-xs text-stone-500">{viewAgent.type}</p>
               </div>
-              <button onClick={() => setViewAgent(null)} className="w-8 h-8 flex items-center justify-center rounded-full hover:bg-neutral-200 text-neutral-400">×</button>
+              <Score value={current?.agentScores?.[viewAgent.id]} />
+              <button 
+                onClick={() => setViewAgent(null)} 
+                className="w-8 h-8 flex items-center justify-center rounded-full hover:bg-stone-100 text-stone-400 transition-colors"
+              >
+                ×
+              </button>
             </div>
-            <div className="p-5 max-h-[60vh] overflow-y-auto space-y-4">
+            <div className="p-5 max-h-[60vh] overflow-y-auto space-y-5">
               <div>
-                <p className="text-xs font-medium text-neutral-400 uppercase tracking-wider mb-2">Current State</p>
-                <p className="text-neutral-700"><RichText>{viewAgent.state}</RichText></p>
+                <p className="text-xs text-stone-400 uppercase tracking-wider font-medium mb-2">Current State</p>
+                <p className="text-sm text-stone-700 leading-relaxed"><RichText>{viewAgent.state}</RichText></p>
               </div>
               {viewAgent.actionHistory?.length > 0 && (
                 <div>
-                  <p className="text-xs font-medium text-neutral-400 uppercase tracking-wider mb-2">Action History</p>
-                  <div className="space-y-3">
+                  <p className="text-xs text-stone-400 uppercase tracking-wider font-medium mb-3">History</p>
+                  <div className="space-y-2">
                     {[...viewAgent.actionHistory].reverse().map((a, i) => (
                       <div key={i} className="flex gap-3 text-sm">
-                        <span className="text-neutral-400 font-mono shrink-0">T{a.turn}</span>
-                        <span className="text-neutral-700"><RichText>{a.action}</RichText></span>
+                        <span className="text-stone-400 font-mono text-xs shrink-0 w-6">{a.turn}</span>
+                        <span className="text-stone-600 leading-relaxed"><RichText>{a.action}</RichText></span>
                       </div>
                     ))}
                   </div>
