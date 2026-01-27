@@ -23,22 +23,24 @@ export async function POST(request: NextRequest) {
 
     const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
 
-    // Create a prompt for stylized editorial illustration
-    const imagePrompt = `Editorial illustration for a high-concept political thriller magazine.
+    // Create a prompt inspired by Stanford GSB "AI & Power" vibes - satirical, smart, fun
+    const imagePrompt = `Satirical editorial illustration for a smart, funny take on tech power dynamics.
 
 SCENE: ${headline}
 
 CONTEXT: ${narration.slice(0, 350)}
 
 STYLE DIRECTION:
-- Moody, cinematic composition with dramatic lighting and deep shadows
-- Limited color palette: predominantly cool grays, deep blues, and warm amber accents
-- Bold graphic shapes, clean lines, slightly stylized figures
-- Inspired by Sachin Teng, Victo Ngai, and New Yorker covers
-- Atmospheric tension, sense of scale and consequence
+- Think "Silicon Valley meets The Economist meets a really good meme"
+- Slightly absurdist, self-aware humor about tech elites, VCs in Patagonia vests, AI doom discourse
+- Characters can include: nervous MBAs, smug founders, confused regulators, sentient AI with existential dread
+- Visual metaphors welcome: chess pieces, puppet strings, Eames chairs, whiteboards with concerning diagrams
+- Color palette: Stanford cardinal red accents, tech-bro navy, VC khaki, with pops of AI electric blue
+- Clean, graphic illustration style - like McSweeney's or a New Yorker cartoon had a baby with Figma
+- Dramatic but playful - the stakes are real but we can laugh about how weird this all is
 - No text or words in the image
-- Sophisticated, editorial quality - the kind of illustration you'd see in The Atlantic or Wired
-- Convey the power dynamics and stakes visually through composition and lighting`;
+- Capture the absurdity of humans trying to manage power dynamics with entities smarter than them
+- A tiny detail somewhere that makes you chuckle on second viewing`;
 
 
     console.log("🎨 Generating image for:", headline.slice(0, 50));
