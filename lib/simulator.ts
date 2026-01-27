@@ -144,6 +144,8 @@ export class Simulator {
       state: a.state,
     }));
 
+    console.log(`📊 Scoring ${agents.length} agents...`);
+
     const result = await this.apiClient.callSimulatorWithTool<AgentScoresResult>(
       'You objectively evaluate how well each agent is achieving their goals.',
       getAgentScoresPrompt(agents, state.context),
@@ -151,6 +153,14 @@ export class Simulator {
       'Score all agents',
       AGENT_SCORES_SCHEMA
     );
+
+    // Validate we got scores for all agents
+    const returnedIds = new Set(result.scores?.map(s => s.agentId) || []);
+    const missingAgents = agents.filter(a => !returnedIds.has(a.id));
+    if (missingAgents.length > 0) {
+      console.warn(`⚠️ Missing scores for: ${missingAgents.map(a => a.name).join(', ')}`);
+    }
+    console.log(`📊 Got ${result.scores?.length || 0} scores`);
 
     return result;
   }

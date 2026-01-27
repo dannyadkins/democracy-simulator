@@ -358,15 +358,23 @@ export default function Home() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ currentState: s }),
       });
-      if (!res.ok) return {};
+      if (!res.ok) {
+        console.error('Scores API failed:', res.status);
+        return {};
+      }
       const data = await res.json();
       if (data.success && data.scores) {
         const map: Record<string, number> = {};
         for (const sc of data.scores) { map[sc.agentId] = sc.score; }
+        console.log(`Got scores for ${Object.keys(map).length} agents`);
         return map;
       }
+      console.error('Scores API returned unexpected data:', data);
       return {};
-    } catch { return {}; }
+    } catch (e) { 
+      console.error('Scores fetch error:', e);
+      return {}; 
+    }
   };
 
   const init = async () => {

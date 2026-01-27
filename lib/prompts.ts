@@ -95,11 +95,12 @@ ${intervention ? `\n## EXTERNAL EVENT\n${intervention}` : ''}
 Simulate the next turn with a focus on **compelling narrative arc**.
 
 PACING & TIMELINE:
-- Choose how much time passes based on narrative momentum
-- During buildup/tension: days or weeks (let anticipation grow)
-- During crisis/climax: hours or days (moment-by-moment tension)
-- During aftermath: weeks or months (show consequences settling)
-- Each turn should feel like a meaningful chapter in an unfolding story
+- Choose how much time passes based on narrative needs—be bold with time jumps
+- Strategic positioning / cold war dynamics: MONTHS to YEARS between turns
+- Major product launches / deals closing: WEEKS to MONTHS
+- Active negotiations / crisis unfolding: DAYS to WEEKS  
+- Climactic confrontation / critical 48 hours: HOURS to DAYS
+- Each turn should advance the story meaningfully—skip boring periods entirely
 
 ${playerAction ? `The player controlling **${agents.find(a => a.id === playerAction.agentId)?.name}** has declared: "${playerAction.action}". Incorporate this action and determine its outcomes, including how other agents react to it.` : ''}
 
@@ -165,27 +166,29 @@ export function getAgentScoresPrompt(
   worldContext: string
 ): string {
   const agentList = agents.map(a => 
-    `- **${a.name}** [${a.id}]: ${a.state}`
+    `- ${a.name} (ID: "${a.id}"): ${a.state}`
   ).join('\n');
 
-  return `Score each agent on how well they're achieving their goals based on their current state.
+  return `Score each agent on how well they're achieving their goals.
 
-## WORLD STATE
+## CONTEXT
 ${worldContext}
 
-## AGENTS
+## AGENTS TO SCORE
 ${agentList}
 
 ---
 
-For each agent, assign a score 0-100:
-- 0-30: In a bad position, major obstacles, losing ground
-- 30-50: Struggling, facing challenges
-- 50-70: Neutral to decent position
-- 70-90: Strong position, making good progress
-- 90-100: Dominant, goals nearly achieved
+Return a score array with EXACTLY ${agents.length} entries. For each agent above, return:
+- agentId: Use the EXACT ID string shown in quotes above (e.g., "agent-1234567890-0")
+- score: 0-100 based on their position
 
-Base scores on their STATE description - look for mentions of resources, power, influence, setbacks, wins, etc.`;
+Scoring guide:
+- 0-30: Major setbacks, losing ground
+- 30-50: Struggling, obstacles
+- 50-70: Neutral position
+- 70-90: Strong, making progress
+- 90-100: Dominant, near victory`;
 }
 
 
