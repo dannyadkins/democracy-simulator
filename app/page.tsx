@@ -36,6 +36,7 @@ interface Node {
   agentScores?: Record<string, number>;
   imageUrl?: string;
   imageLoading?: boolean;
+  imageError?: string;
 }
 
 // ═══════════════════════════════════════════════════════════════
@@ -374,7 +375,7 @@ export default function Home() {
 
   const fetchImage = async (nodeId: string, headline: string, narration: string) => {
     // Mark as loading
-    setNodes(prev => prev.map(n => n.id === nodeId ? { ...n, imageLoading: true } : n));
+    setNodes(prev => prev.map(n => n.id === nodeId ? { ...n, imageLoading: true, imageError: undefined } : n));
     
     try {
       const res = await fetch('/api/simulation/image', {
@@ -382,20 +383,22 @@ export default function Home() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ headline, narration }),
       });
+      const data = await res.json();
       if (!res.ok) {
-        console.error('Image API failed:', res.status);
-        setNodes(prev => prev.map(n => n.id === nodeId ? { ...n, imageLoading: false } : n));
+        const errMsg = data.error || `Image failed: ${res.status}`;
+        console.error('Image API failed:', errMsg);
+        setNodes(prev => prev.map(n => n.id === nodeId ? { ...n, imageLoading: false, imageError: errMsg } : n));
         return;
       }
-      const data = await res.json();
       if (data.success && data.imageUrl) {
         setNodes(prev => prev.map(n => n.id === nodeId ? { ...n, imageUrl: data.imageUrl, imageLoading: false } : n));
       } else {
-        setNodes(prev => prev.map(n => n.id === nodeId ? { ...n, imageLoading: false } : n));
+        const errMsg = data.error || 'No image returned';
+        setNodes(prev => prev.map(n => n.id === nodeId ? { ...n, imageLoading: false, imageError: errMsg } : n));
       }
-    } catch (e) {
+    } catch (e: any) {
       console.error('Image fetch error:', e);
-      setNodes(prev => prev.map(n => n.id === nodeId ? { ...n, imageLoading: false } : n));
+      setNodes(prev => prev.map(n => n.id === nodeId ? { ...n, imageLoading: false, imageError: e.message || 'Network error' } : n));
     }
   };
 
@@ -728,6 +731,20 @@ export default function Home() {
                   <div className="absolute inset-0 rounded-full border-2 border-stone-300 border-t-stone-500 animate-spin" />
                 </div>
                 <span className="text-sm text-stone-500 animate-pulse">Generating scene...</span>
+              </div>
+            ) : current?.imageError ? (
+              <div className="absolute inset-0 flex flex-col items-center justify-center gap-2 p-4">
+                <span className="text-rose-500 text-sm font-medium">Image failed</span>
+                <span className="text-xs text-stone-500 text-center max-w-xs line-clamp-3">{current.imageError}</span>
+                <button 
+                  onClick={() => {
+                    const s = current?.state?.history?.[current.state.history.length - 1];
+                    if (s && current) fetchImage(current.id, s.headline, s.narration);
+                  }}
+                  className="mt-2 text-xs text-stone-600 hover:text-stone-900 underline"
+                >
+                  Retry
+                </button>
               </div>
             ) : current?.imageUrl ? (
               <img 
