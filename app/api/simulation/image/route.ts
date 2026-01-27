@@ -37,24 +37,26 @@ Style: Soft watercolor textures, warm lighting, expressive characters, detailed 
     console.log('🎨 Generating image for:', headline.slice(0, 50));
 
     const result = await openai.images.generate({
-      model: 'dall-e-3',
+      model: 'gpt-image-1',
       prompt: imagePrompt,
-      size: '1792x1024',
-      quality: 'standard',
+      size: '1536x1024',
+      quality: 'medium',
       n: 1,
     });
 
-    const imageUrl = result.data?.[0]?.url;
+    // gpt-image-1 returns base64 by default
+    const imageBase64 = result.data?.[0]?.b64_json;
 
-    if (!imageUrl) {
-      throw new Error('No image URL returned');
+    if (!imageBase64) {
+      throw new Error('No image data returned');
     }
 
     console.log('✅ Image generated');
 
+    // Return as data URL for direct use in img src
     return NextResponse.json({
       success: true,
-      imageUrl,
+      imageUrl: `data:image/png;base64,${imageBase64}`,
     });
   } catch (error: any) {
     console.error('Error generating image:', error);
