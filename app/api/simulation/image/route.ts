@@ -23,14 +23,23 @@ export async function POST(request: NextRequest) {
 
     const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
 
-    // Create a prompt for Ghibli-style image
-    const imagePrompt = `Fun illustration, whimsical and dreamlike: 
+    // Create a prompt for stylized editorial illustration
+    const imagePrompt = `Editorial illustration for a high-concept political thriller magazine.
 
-${headline}
+SCENE: ${headline}
 
-Scene details: ${narration.slice(0, 300)}
+CONTEXT: ${narration.slice(0, 350)}
 
-Style: Soft watercolor textures, warm lighting, expressive characters, detailed backgrounds with a sense of wonder. Hayao Miyazaki inspired. Vibrant but gentle colors. Slightly exaggerated expressions showing the drama. Wide cinematic composition.`;
+STYLE DIRECTION:
+- Moody, cinematic composition with dramatic lighting and deep shadows
+- Limited color palette: predominantly cool grays, deep blues, and warm amber accents
+- Bold graphic shapes, clean lines, slightly stylized figures
+- Inspired by Sachin Teng, Victo Ngai, and New Yorker covers
+- Atmospheric tension, sense of scale and consequence
+- No text or words in the image
+- Sophisticated, editorial quality - the kind of illustration you'd see in The Atlantic or Wired
+- Convey the power dynamics and stakes visually through composition and lighting`;
+
 
     console.log("🎨 Generating image for:", headline.slice(0, 50));
 

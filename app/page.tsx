@@ -374,6 +374,7 @@ export default function Home() {
   };
 
   const fetchImage = async (nodeId: string, headline: string, narration: string) => {
+    console.log('🎨 Fetching image for:', headline.slice(0, 50));
     // Mark as loading
     setNodes(prev => prev.map(n => n.id === nodeId ? { ...n, imageLoading: true, imageError: undefined } : n));
     
@@ -391,13 +392,15 @@ export default function Home() {
         return;
       }
       if (data.success && data.imageUrl) {
+        console.log('✅ Image loaded successfully');
         setNodes(prev => prev.map(n => n.id === nodeId ? { ...n, imageUrl: data.imageUrl, imageLoading: false } : n));
       } else {
         const errMsg = data.error || 'No image returned';
+        console.error('❌ Image error:', errMsg);
         setNodes(prev => prev.map(n => n.id === nodeId ? { ...n, imageLoading: false, imageError: errMsg } : n));
       }
     } catch (e: any) {
-      console.error('Image fetch error:', e);
+      console.error('❌ Image fetch error:', e);
       setNodes(prev => prev.map(n => n.id === nodeId ? { ...n, imageLoading: false, imageError: e.message || 'Network error' } : n));
     }
   };
@@ -441,8 +444,14 @@ export default function Home() {
 
       // Generate image for initial state (non-blocking)
       const story = s.history[s.history.length - 1];
-      if (story) {
+      if (story?.headline && story?.narration) {
         fetchImage(rootId, story.headline, story.narration);
+      } else if (s.worldHeadline || s.context) {
+        // Fallback if no history yet
+        fetchImage(rootId, s.worldHeadline || 'Simulation begins', s.context || '');
+      } else {
+        // No content to generate image from - mark as not loading
+        setNodes(prev => prev.map(n => n.id === rootId ? { ...n, imageLoading: false } : n));
       }
     } catch (e: any) { setError(e.message || 'Failed'); }
     finally { setLoading(false); }
