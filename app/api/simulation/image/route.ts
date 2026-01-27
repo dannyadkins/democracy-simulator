@@ -23,24 +23,23 @@ export async function POST(request: NextRequest) {
 
     const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
 
-    // Create a prompt inspired by Stanford GSB "AI & Power" vibes - satirical, smart, fun
-    const imagePrompt = `Satirical editorial illustration for a smart, funny take on tech power dynamics.
+    // New Yorker cartoon style - witty, understated, clever visual humor
+    const imagePrompt = `A single-panel New Yorker magazine cartoon depicting this scene:
 
-SCENE: ${headline}
+"${headline}"
 
-CONTEXT: ${narration.slice(0, 350)}
+What's happening: ${narration.slice(0, 250)}
 
-STYLE DIRECTION:
-- Think "Silicon Valley meets The Economist meets a really good meme"
-- Slightly absurdist, self-aware humor about tech elites, VCs in Patagonia vests, AI doom discourse
-- Characters can include: nervous MBAs, smug founders, confused regulators, sentient AI with existential dread
-- Visual metaphors welcome: chess pieces, puppet strings, Eames chairs, whiteboards with concerning diagrams
-- Color palette: Stanford cardinal red accents, tech-bro navy, VC khaki, with pops of AI electric blue
-- Clean, graphic illustration style - like McSweeney's or a New Yorker cartoon had a baby with Figma
-- Dramatic but playful - the stakes are real but we can laugh about how weird this all is
-- No text or words in the image
-- Capture the absurdity of humans trying to manage power dynamics with entities smarter than them
-- A tiny detail somewhere that makes you chuckle on second viewing`;
+CRITICAL STYLE REQUIREMENTS:
+- Classic New Yorker cartoon aesthetic: simple ink linework, minimal color (light watercolor wash), lots of white space
+- The humor should be DRY and WITTY, not wacky - think a knowing smirk, not a belly laugh
+- Find the ABSURD TRUTH in the situation - the joke is how relatable/ridiculous the power dynamics are
+- Characters should look like normal professionals in absurd situations (boardrooms, offices, conferences)
+- Body language and facial expressions carry the comedy - subtle exasperation, false confidence, quiet panic
+- One clear visual gag or ironic juxtaposition that makes the viewer go "hah, yeah"
+- NO TEXT, NO CAPTIONS, NO WORDS - the image alone must be funny
+- Sophisticated humor that rewards intelligence - the kind of joke you'd explain at a dinner party
+- Clean, elegant composition - this could hang in a waiting room at Andreessen Horowitz`;
 
 
     console.log("🎨 Generating image for:", headline.slice(0, 50));
