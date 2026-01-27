@@ -380,7 +380,11 @@ export default function Home() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           startingConditions: scenario,
-          playerInfo: pName ? { name: pName, description: pRole || 'A key player' } : undefined,
+          playerInfo: pName ? { 
+            name: pName, 
+            description: pRole || 'A key player',
+            goal: pGoal || 'Maximize your influence and power'
+          } : undefined,
         }),
       });
       if (!res.ok) throw new Error(`Server error: ${res.status}`);

@@ -49,6 +49,15 @@ export class Simulator {
       WORLD_SEED_SCHEMA
     );
 
+    // Validate seed data
+    if (!seedData.agents || !Array.isArray(seedData.agents)) {
+      console.error('Invalid seed data:', JSON.stringify(seedData, null, 2).slice(0, 500));
+      throw new Error('Seed data missing agents array');
+    }
+    if (!seedData.context) {
+      throw new Error('Seed data missing context');
+    }
+
     this.world.initializeFromSeed(seedData);
 
     const duration = ((Date.now() - startTime) / 1000).toFixed(1);

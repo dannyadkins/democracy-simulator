@@ -28,7 +28,7 @@ export class ApiClient {
   ): Promise<T> {
     const response = await this.client.messages.create({
       model: "claude-haiku-4-5",
-      max_tokens: 4096, // Reduced for faster responses
+      max_tokens: 8192,
       system: systemPrompt,
       messages: [{ role: "user", content: userMessage }],
       tools: [
@@ -44,10 +44,21 @@ export class ApiClient {
     // Extract tool use from response
     const toolUse = response.content.find((block) => block.type === "tool_use");
     if (!toolUse || toolUse.type !== "tool_use") {
+      console.error('Response content:', JSON.stringify(response.content, null, 2));
       throw new Error("No tool use in response");
     }
 
-    return toolUse.input as T;
+    const result = toolUse.input as T;
+    
+    // Validate result has expected structure
+    if (result && typeof result === 'object') {
+      console.log(`✓ Tool ${toolName} returned valid object`);
+    } else {
+      console.error('Unexpected tool result:', result);
+      throw new Error(`Tool ${toolName} returned invalid result`);
+    }
+
+    return result;
   }
 
   /**

@@ -18,9 +18,14 @@ FORMATTING:
 - Turns can cover variable time spans based on intensity`;
 
 
-export function getSeedingPrompt(startingConditions: string, playerInfo?: { name: string; description: string }): string {
+export function getSeedingPrompt(startingConditions: string, playerInfo?: { name: string; description: string; goal?: string }): string {
   const playerNote = playerInfo 
-    ? `\n\nIMPORTANT: One agent MUST be "${playerInfo.name}" (Human player) - ${playerInfo.description}. This agent is controlled by a human player and should be given a realistic starting position.`
+    ? `\n\nIMPORTANT - PLAYER CHARACTER:
+One agent MUST be "${playerInfo.name}" (Human type, player-controlled).
+- Role: ${playerInfo.description}
+- PRIMARY GOAL: "${playerInfo.goal || 'Maximize influence and power'}"
+
+The player's state description MUST reflect their goal as their core motivation. If they want power, make them ambitious and power-seeking. If they want safety, make them safety-focused. Their starting position should give them realistic paths toward their stated goal.`
     : '';
 
   return `Create a rich simulation based on: ${startingConditions}${playerNote}
