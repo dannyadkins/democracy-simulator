@@ -15,7 +15,8 @@ FORMATTING:
 - Use **bold** for key events, names, and important facts
 - Use *italics* for emphasis and internal thoughts
 - Track in-world dates/times explicitly
-- Turns can cover variable time spans based on intensity`;
+- Turns can cover variable time spans based on intensity
+- Be concise—every sentence should earn its place`;
 
 
 export function getSeedingPrompt(startingConditions: string, playerInfo?: { name: string; description: string; goal?: string }): string {
@@ -31,26 +32,18 @@ The player's state description MUST reflect their goal as their core motivation.
   return `Create a rich simulation based on: ${startingConditions}${playerNote}
 
 RETURN:
-- context: A detailed description of the starting world state. Include:
-  - The **current in-world date** (e.g., "January 15, 2025")
+- context: Starting world state (2 short paragraphs). Include:
+  - **Current in-world date**
   - Key power dynamics and tensions
-  - Important resources and who controls them
-  - Recent history that sets the stage
-  - Use **bold** for key facts and *italics* for nuance
-  (2-3 paragraphs)
+  - Who controls what resources
+  - Use **bold** for key facts
 
-- agents: Create 8-15 key players. For each agent provide:
-  - name: Their name or organization name
-  - type: One of: AI, Human, Organization, Government, Corporation, Media, Labor, Military
-  - state: A rich description including:
-    - Their primary goals and motivations
-    - Key resources and capabilities they control
-    - Important relationships (allies, rivals, dependencies)
-    - Current strategic position and vulnerabilities
-    - Any ongoing initiatives or plans
-    (2-4 sentences)
+- agents: Create 8-15 key players. For each:
+  - name: Name or organization
+  - type: AI, Human, Organization, Government, Corporation, Media, Labor, or Military
+  - state: Goals, resources, key relationships, position (2-3 sentences max)
 
-Make the scenario feel alive with existing tensions, alliances, and dynamics ready to evolve.`;
+Be vivid but concise. Make the scenario feel alive with existing tensions ready to evolve.`;
 }
 
 
@@ -94,13 +87,11 @@ ${intervention ? `\n## EXTERNAL EVENT\n${intervention}` : ''}
 
 Simulate the next turn with a focus on **compelling narrative arc**.
 
-PACING & TIMELINE:
-- Choose how much time passes based on narrative needs—be bold with time jumps
-- Strategic positioning / cold war dynamics: MONTHS to YEARS between turns
-- Major product launches / deals closing: WEEKS to MONTHS
-- Active negotiations / crisis unfolding: DAYS to WEEKS  
-- Climactic confrontation / critical 48 hours: HOURS to DAYS
-- Each turn should advance the story meaningfully—skip boring periods entirely
+PACING & TIMELINE (be bold with time jumps):
+- Default: WEEKS to MONTHS between turns
+- Cold war / strategic positioning: MONTHS to YEARS
+- Crisis / climax: DAYS to WEEKS
+- Skip boring periods—each turn should matter
 
 ${playerAction ? `The player controlling **${agents.find(a => a.id === playerAction.agentId)?.name}** has declared: "${playerAction.action}". Incorporate this action and determine its outcomes, including how other agents react to it.` : ''}
 
@@ -113,12 +104,12 @@ FORMATTING:
 - Include **new in-world date** in headline
 - Use **bold** for key events/names, *italics* for emphasis
 
-Return:
-- headline: Punchy headline with date (e.g., "**Feb 2025**: OpenAI Ships GPT-5")
-- narration: 1-2 paragraphs on key events
-- worldHeadline: Empty string
-- context: Updated world state (2-3 sentences) with new date
-- agentUpdates: For EVERY agent: their action (1 sentence) and updated state (1-2 sentences)`;
+Return IN THIS ORDER:
+1. agentUpdates: What EVERY agent does (1 sentence action + 1 sentence state update each)
+2. headline: Punchy headline with date (e.g., "**Feb 2025**: OpenAI Ships GPT-5")
+3. narration: 1-2 SHORT paragraphs narrating the key events—be punchy, not verbose
+4. worldHeadline: Empty string
+5. context: Updated world state (2 sentences) with new date`;
 }
 
 

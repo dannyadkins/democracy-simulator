@@ -3,7 +3,7 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { 
   Bot, User, Building2, Landmark, Factory, Radio, Users, Shield,
-  CircleDot, ChevronRight, Zap
+  CircleDot, ChevronRight, Zap, X
 } from 'lucide-react';
 
 // ═══════════════════════════════════════════════════════════════
@@ -26,6 +26,11 @@ interface SimState {
   history: { turn: number; headline: string; narration: string }[];
 }
 
+interface StreamingAgentAction {
+  agentId: string;
+  action: string;
+}
+
 interface Node {
   id: string;
   parent: string | null;
@@ -37,6 +42,12 @@ interface Node {
   imageUrl?: string;
   imageLoading?: boolean;
   imageError?: string;
+  isNew?: boolean; // For typewriter animation
+  streamingHeadline?: string; // Real-time streaming content
+  streamingNarration?: string;
+  streamingPhase?: 'actions' | 'narrating'; // Current generation phase
+  streamingAgentActions?: StreamingAgentAction[]; // Actions as they stream
+  isStreaming?: boolean;
 }
 
 // ═══════════════════════════════════════════════════════════════
@@ -63,7 +74,7 @@ function AgentIcon({ type, size = 18 }: { type: string; size?: number }) {
   );
 }
 
-function RichText({ children, className = '' }: { children: string; className?: string }) {
+function RichText({ children, className = '', inheritColor = false }: { children: string; className?: string; inheritColor?: boolean }) {
   if (!children) return null;
   
   const renderText = (text: string): React.ReactNode[] => {
@@ -91,7 +102,8 @@ function RichText({ children, className = '' }: { children: string; className?: 
           result.push(<span key={key++}>{remaining.slice(0, nextMatch.index)}</span>);
         }
         if (nextMatch.type === 'bold') {
-          result.push(<strong key={key++} className="font-medium text-stone-900">{nextMatch.match[1]}</strong>);
+          // Use inherit color in contexts where parent controls text color (like timeline)
+          result.push(<strong key={key++} className={inheritColor ? "font-semibold" : "font-medium text-stone-900"}>{nextMatch.match[1]}</strong>);
         } else {
           result.push(<em key={key++} className="italic">{nextMatch.match[1]}</em>);
         }
@@ -114,6 +126,198 @@ function Score({ value, size = 'sm' }: { value: number | null | undefined; size?
     <span className={`font-mono ${color} ${size === 'lg' ? 'text-3xl font-light' : 'text-xs'}`}>
       {value}
     </span>
+  );
+}
+
+// Turn simulation modal - shows agent actions as they stream
+function TurnModal({ 
+  agents, 
+  streamingActions, 
+  phase,
+  playerAction,
+  playerName
+}: { 
+  agents: Agent[];
+  streamingActions: StreamingAgentAction[];
+  phase: 'actions' | 'narrating';
+  playerAction?: string;
+  playerName?: string;
+}) {
+  const completedCount = streamingActions.length;
+  const totalAgents = agents.length;
+  
+  return (
+    <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+      <div className="bg-white rounded-2xl shadow-2xl w-full max-w-lg max-h-[80vh] flex flex-col overflow-hidden">
+        {/* Header */}
+        <div className="px-6 py-4 border-b border-stone-100">
+          <div className="flex items-center justify-between">
+            <div>
+              <h2 className="font-medium text-stone-900">
+                {phase === 'actions' ? 'Simulating Turn' : 'Generating Narrative'}
+              </h2>
+              <p className="text-xs text-stone-500 mt-0.5">
+                {phase === 'actions' 
+                  ? `${completedCount} of ${totalAgents} agents acted`
+                  : 'All agents have acted, writing story...'
+                }
+              </p>
+            </div>
+            <div className="w-8 h-8 rounded-full bg-stone-100 flex items-center justify-center">
+              <div className="w-4 h-4 border-2 border-stone-300 border-t-stone-600 rounded-full animate-spin" />
+            </div>
+          </div>
+          {/* Progress bar */}
+          <div className="mt-3 h-1 bg-stone-100 rounded-full overflow-hidden">
+            <div 
+              className="h-full bg-stone-900 transition-all duration-500 ease-out"
+              style={{ width: phase === 'actions' ? `${(completedCount / totalAgents) * 100}%` : '100%' }}
+            />
+          </div>
+        </div>
+        
+        {/* Player action */}
+        {playerAction && playerName && (
+          <div className="px-6 py-3 bg-stone-50 border-b border-stone-100">
+            <div className="flex items-start gap-3">
+              <div className="w-6 h-6 rounded-full bg-stone-200 flex items-center justify-center flex-shrink-0 mt-0.5">
+                <User size={12} className="text-stone-500" />
+              </div>
+              <div className="flex-1 min-w-0">
+                <div className="text-xs font-medium text-stone-700">{playerName}</div>
+                <p className="text-sm text-stone-600 mt-0.5">{playerAction}</p>
+              </div>
+            </div>
+          </div>
+        )}
+        
+        {/* Streaming actions */}
+        <div className="flex-1 overflow-y-auto px-6 py-4 space-y-3">
+          {streamingActions.length === 0 ? (
+            // No actions yet - show skeleton loaders
+            <div className="space-y-3">
+              {[0,1,2].map(i => (
+                <div key={i} className="flex items-start gap-3 animate-pulse">
+                  <div className="w-6 h-6 rounded-full bg-stone-100 flex-shrink-0" />
+                  <div className="flex-1 space-y-1.5">
+                    <div className="h-3 w-20 bg-stone-100 rounded" />
+                    <div className="h-4 w-full bg-stone-50 rounded" />
+                  </div>
+                </div>
+              ))}
+            </div>
+          ) : (
+            <>
+              {streamingActions.map((sa, i) => {
+                const agent = agents.find(a => a.id === sa.agentId);
+                const Icon = TYPE_ICONS[agent?.type || ''] || CircleDot;
+                return (
+                  <div 
+                    key={i} 
+                    className="flex items-start gap-3 animate-in fade-in slide-in-from-bottom-2 duration-300"
+                  >
+                    <div className="w-6 h-6 rounded-full bg-stone-100 flex items-center justify-center flex-shrink-0 mt-0.5">
+                      <Icon size={12} className="text-stone-500" />
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <div className="text-xs font-medium text-stone-700">{agent?.name || 'Agent'}</div>
+                      <p className="text-sm text-stone-600 mt-0.5">{sa.action}</p>
+                    </div>
+                  </div>
+                );
+              })}
+              
+              {/* Waiting indicator for more agents */}
+              {completedCount < totalAgents && (
+                <div className="flex items-center gap-3 text-stone-400">
+                  <div className="w-6 h-6 rounded-full bg-stone-50 flex items-center justify-center">
+                    <div className="w-1.5 h-1.5 rounded-full bg-stone-300 animate-pulse" />
+                  </div>
+                  <span className="text-sm">{totalAgents - completedCount} more agents thinking...</span>
+                </div>
+              )}
+            </>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// Story text with real streaming support
+function StoryText({ 
+  headline, 
+  narration, 
+  isNew,
+  isStreaming,
+  onViewed 
+}: { 
+  headline: string; 
+  narration: string; 
+  isNew: boolean;
+  isStreaming: boolean;
+  onViewed: () => void;
+}) {
+  const viewedRef = useRef(false);
+  
+  // Mark as viewed once we have content
+  useEffect(() => {
+    if (!isStreaming && !isNew && !viewedRef.current && headline) {
+      viewedRef.current = true;
+      onViewed();
+    }
+  }, [isStreaming, isNew, headline, onViewed]);
+  
+  // Streaming mode - show skeleton or content
+  if (isStreaming) {
+    const hasContent = headline || narration;
+    
+    // No content yet - show skeleton (modal handles the waiting state)
+    if (!hasContent) {
+      return (
+        <article className="space-y-4 min-h-[120px]">
+          <div className="h-6 w-3/4 bg-stone-100 rounded animate-pulse" />
+          <div className="space-y-2">
+            <div className="h-4 w-full bg-stone-50 rounded animate-pulse" />
+            <div className="h-4 w-5/6 bg-stone-50 rounded animate-pulse" />
+          </div>
+        </article>
+      );
+    }
+    
+    // Content is streaming in
+    return (
+      <article className="space-y-4 min-h-[120px]">
+        <h1 className="text-xl font-medium text-stone-900 leading-snug">
+          <RichText>{headline}</RichText>
+          {headline && !narration && <span className="animate-pulse text-stone-300 ml-1">▍</span>}
+        </h1>
+        {narration && (
+          <div className="text-stone-600 leading-relaxed text-[15px] space-y-3">
+            {narration.split('\n').filter(Boolean).map((para, i, arr) => (
+              <p key={i}>
+                <RichText>{para}</RichText>
+                {i === arr.length - 1 && <span className="animate-pulse text-stone-300 ml-0.5">▍</span>}
+              </p>
+            ))}
+          </div>
+        )}
+      </article>
+    );
+  }
+  
+  // Normal mode - static text with markdown
+  return (
+    <article className="space-y-4">
+      <h1 className="text-xl font-medium text-stone-900 leading-snug">
+        <RichText>{headline || 'Simulation Ready'}</RichText>
+      </h1>
+      <div className="text-stone-600 leading-relaxed space-y-3 text-[15px]">
+        {(narration || '').split('\n').filter(Boolean).map((para, i) => (
+          <p key={i}><RichText>{para}</RichText></p>
+        ))}
+      </div>
+    </article>
   );
 }
 
@@ -299,6 +503,7 @@ DYNAMICS:
 export default function Home() {
   const [started, setStarted] = useState(false);
   const [scenario, setScenario] = useState('');
+  const [scenarioName, setScenarioName] = useState('');
   const [pName, setPName] = useState('');
   const [pRole, setPRole] = useState('');
   const [pGoal, setPGoal] = useState('');
@@ -309,10 +514,36 @@ export default function Home() {
   const [goal, setGoal] = useState('');
 
   const [loading, setLoading] = useState(false);
+  const [loadingPhase, setLoadingPhase] = useState('');
+  const [pendingAction, setPendingAction] = useState('');
   const [error, setError] = useState('');
   const [action, setAction] = useState('');
   const [auto, setAuto] = useState(false);
   const [viewAgent, setViewAgent] = useState<Agent | null>(null);
+  
+  // Suggested actions for player
+  interface SuggestedAction {
+    title: string;
+    description: string;
+    strategy: 'aggressive' | 'defensive' | 'diplomatic';
+  }
+  const [suggestedActions, setSuggestedActions] = useState<SuggestedAction[]>([]);
+  const [loadingSuggestions, setLoadingSuggestions] = useState(false);
+  
+  // Game analysis
+  interface GameAnalysis {
+    headline: string;
+    summary: string;
+    playerPerformance: { grade: string; verdict: string };
+    turningPoints: { turn: number; event: string; impact: string }[];
+    whatWentRight: string[];
+    whatWentWrong: string[];
+    alternativePath: string;
+    finalStandings: { name: string; outcome: string }[];
+  }
+  const [gameAnalysis, setGameAnalysis] = useState<GameAnalysis | null>(null);
+  const [analyzingGame, setAnalyzingGame] = useState(false);
+  const [showAnalysis, setShowAnalysis] = useState(false);
 
   const autoRef = useRef(auto);
   useEffect(() => { autoRef.current = auto; }, [auto]);
@@ -373,16 +604,19 @@ export default function Home() {
     }
   };
 
-  const fetchImage = async (nodeId: string, headline: string, narration: string) => {
+  const fetchImage = async (nodeId: string, headline: string, narration: string, agentsList?: Agent[]) => {
     console.log('🎨 Fetching image for:', headline.slice(0, 50));
     // Mark as loading
     setNodes(prev => prev.map(n => n.id === nodeId ? { ...n, imageLoading: true, imageError: undefined } : n));
+    
+    // Get agents from state if not provided
+    const agents = agentsList || state?.agents?.map(a => ({ name: a.name, type: a.type })) || [];
     
     try {
       const res = await fetch('/api/simulation/image', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ headline, narration }),
+        body: JSON.stringify({ headline, narration, agents }),
       });
       const data = await res.json();
       if (!res.ok) {
@@ -408,9 +642,25 @@ export default function Home() {
   const init = async () => {
     if (!scenario.trim()) return;
     setLoading(true);
+    setLoadingPhase('Analyzing scenario...');
     setError('');
+    
+    // Set default scenario name for custom scenarios
+    if (!scenarioName) {
+      setScenarioName('Custom Simulation');
+    }
 
     try {
+      // Show progress through phases
+      const phaseTimer = setInterval(() => {
+        setLoadingPhase(prev => {
+          if (prev === 'Analyzing scenario...') return 'Generating agents...';
+          if (prev === 'Generating agents...') return 'Building relationships...';
+          if (prev === 'Building relationships...') return 'Setting the stage...';
+          return prev;
+        });
+      }, 2500);
+      
       const res = await fetch('/api/simulation/init', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -423,6 +673,9 @@ export default function Home() {
           } : undefined,
         }),
       });
+      
+      clearInterval(phaseTimer);
+      
       if (!res.ok) throw new Error(`Server error: ${res.status}`);
       const data = await res.json();
       if (!data.success) throw new Error(data.error || data.details || 'Unknown error');
@@ -431,11 +684,12 @@ export default function Home() {
       const pid = pName ? s.agents.find(a => a.name.toLowerCase().includes(pName.toLowerCase()))?.id || null : null;
       const g = pGoal || 'Maximize your influence';
 
+      setLoadingPhase('Evaluating positions...');
       const agentScores = await fetchAgentScores(s);
       const playerScore = pid && agentScores[pid] ? agentScores[pid] : null;
 
       const rootId = uid();
-      const root: Node = { id: rootId, parent: null, state: s, score: playerScore, scoring: false, agentScores, imageLoading: true };
+      const root: Node = { id: rootId, parent: null, state: s, score: playerScore, scoring: false, agentScores, imageLoading: true, isNew: true };
       setNodes([root]);
       setCurrentId(rootId);
       setPlayerId(pid);
@@ -454,54 +708,178 @@ export default function Home() {
         setNodes(prev => prev.map(n => n.id === rootId ? { ...n, imageLoading: false } : n));
       }
     } catch (e: any) { setError(e.message || 'Failed'); }
-    finally { setLoading(false); }
+    finally { setLoading(false); setLoadingPhase(''); }
   };
 
   const turn = async (playerAction?: string) => {
     if (!state || !currentId || loading) return;
     setLoading(true);
+    setLoadingPhase('');
+    setPendingAction(playerAction || '');
     setError('');
 
+    // Create placeholder node
+    const newNodeId = uid();
+    const placeholderState: SimState = {
+      ...state,
+      turn: state.turn + 1,
+      history: [...state.history, { turn: state.turn + 1, headline: '', narration: '' }]
+    };
+    const placeholderNode: Node = {
+      id: newNodeId,
+      parent: currentId,
+      state: placeholderState,
+      score: null,
+      scoring: false,
+      action: playerAction,
+      isStreaming: true,
+      streamingPhase: 'actions',
+      streamingAgentActions: [],
+      streamingHeadline: '',
+      streamingNarration: '',
+    };
+    
+    setNodes(prev => [...prev, placeholderNode]);
+    setCurrentId(newNodeId);
+    setAction('');
+
     try {
-      const res = await fetch('/api/simulation/turn', {
+      // ═══════════════════════════════════════════════════════════════
+      // PHASE 1: Generate agent actions in PARALLEL
+      // ═══════════════════════════════════════════════════════════════
+      const agentActions: { agentId: string; action: string }[] = [];
+      const playerActionData = playerId && playerAction ? { agentId: playerId, action: playerAction } : undefined;
+      
+      // Prepare requests for all agents
+      const agentRequests = state.agents.map(agent => ({
+        agent: { id: agent.id, name: agent.name, type: agent.type, state: agent.state },
+        worldContext: state.context,
+        otherAgents: state.agents.filter(a => a.id !== agent.id).map(a => ({ name: a.name, type: a.type, state: a.state })),
+        playerAction: playerActionData,
+        recentHistory: state.history.slice(-3)
+      }));
+
+      // Fire all requests and show results as they complete
+      const fetchAndUpdate = async (reqBody: any) => {
+        try {
+          const res = await fetch('/api/simulation/agent-action', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(reqBody),
+          });
+          if (!res.ok) throw new Error(`Agent action failed: ${res.status}`);
+          const result = await res.json();
+          
+          if (result?.success) {
+            const action = { agentId: result.agentId, action: result.action };
+            agentActions.push(action);
+            // Update UI immediately when this agent completes
+            setNodes(prev => prev.map(n => 
+              n.id === newNodeId ? { 
+                ...n, 
+                streamingAgentActions: [...(n.streamingAgentActions || []), action]
+              } : n
+            ));
+          }
+          return result;
+        } catch (e) {
+          console.error(`Failed to get action for agent:`, e);
+          return null;
+        }
+      };
+
+      // Fire all requests - each updates UI when it completes
+      await Promise.all(agentRequests.map(fetchAndUpdate));
+
+      // ═══════════════════════════════════════════════════════════════
+      // PHASE 2: Generate narrative with streaming
+      // ═══════════════════════════════════════════════════════════════
+      setNodes(prev => prev.map(n => 
+        n.id === newNodeId ? { ...n, streamingPhase: 'narrating' } : n
+      ));
+
+      const narrateRes = await fetch('/api/simulation/narrate', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           currentState: state,
-          playerAction: playerId && playerAction ? { agentId: playerId, action: playerAction } : undefined,
+          agentActions,
+          playerAction: playerActionData,
         }),
       });
-      if (!res.ok) throw new Error(`Server error: ${res.status}`);
-      const data = await res.json();
-      if (!data.success) throw new Error(data.error || 'Turn failed');
+      
+      if (!narrateRes.ok) throw new Error(`Narration failed: ${narrateRes.status}`);
+      if (!narrateRes.body) throw new Error('No response body');
 
-      const newState = data.state as SimState;
-      const agentScores = await fetchAgentScores(newState);
-      const playerScore = playerId && agentScores[playerId] ? agentScores[playerId] : null;
+      const reader = narrateRes.body.getReader();
+      const decoder = new TextDecoder();
+      let buffer = '';
 
-      const newNodeId = uid();
-      const newNode: Node = { 
-        id: newNodeId, 
-        parent: currentId, 
-        state: newState, 
-        score: playerScore, 
-        scoring: false, 
-        action: playerAction,
-        agentScores,
-        imageLoading: true
-      };
-
-      setNodes(prev => [...prev, newNode]);
-      setCurrentId(newNodeId);
-      setAction('');
-
-      // Generate image for new turn (non-blocking)
-      const story = newState.history[newState.history.length - 1];
-      if (story) {
-        fetchImage(newNodeId, story.headline, story.narration);
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+        
+        buffer += decoder.decode(value, { stream: true });
+        const lines = buffer.split('\n\n');
+        buffer = lines.pop() || '';
+        
+        for (const line of lines) {
+          if (!line.startsWith('data: ')) continue;
+          const jsonStr = line.slice(6);
+          
+          try {
+            const event = JSON.parse(jsonStr);
+            
+            if (event.type === 'headline') {
+              setNodes(prev => prev.map(n => 
+                n.id === newNodeId ? { ...n, streamingHeadline: event.content } : n
+              ));
+            } else if (event.type === 'narration') {
+              setNodes(prev => prev.map(n => 
+                n.id === newNodeId ? { ...n, streamingNarration: event.content } : n
+              ));
+            } else if (event.type === 'image_ready') {
+              setNodes(prev => prev.map(n => 
+                n.id === newNodeId ? { ...n, imageLoading: true } : n
+              ));
+              fetchImage(newNodeId, event.headline, event.narration);
+            } else if (event.type === 'done') {
+              const newState = event.state as SimState;
+              
+              setLoadingPhase('Evaluating...');
+              const agentScores = await fetchAgentScores(newState);
+              const playerScore = playerId && agentScores[playerId] ? agentScores[playerId] : null;
+              
+              setNodes(prev => prev.map(n => 
+                n.id === newNodeId ? { 
+                  ...n, 
+                  state: newState, 
+                  score: playerScore,
+                  agentScores,
+                  isStreaming: false,
+                  streamingHeadline: undefined,
+                  streamingNarration: undefined,
+                  // Only set imageLoading if not already started
+                  imageLoading: n.imageLoading || false,
+                  isNew: false,
+                } : n
+              ));
+            } else if (event.type === 'error') {
+              throw new Error(event.message);
+            }
+          } catch (parseError) {
+            console.warn('Failed to parse SSE:', jsonStr);
+          }
+        }
       }
-    } catch (e: any) { setError(e.message || 'Failed'); setAuto(false); }
-    finally { setLoading(false); }
+    } catch (e: any) { 
+      setError(e.message || 'Failed'); 
+      setAuto(false);
+      // Remove placeholder node on error
+      setNodes(prev => prev.filter(n => n.id !== newNodeId));
+      setCurrentId(currentId);
+    }
+    finally { setLoading(false); setLoadingPhase(''); setPendingAction(''); }
   };
 
   const getAutoAction = async (): Promise<string | null> => {
@@ -518,11 +896,92 @@ export default function Home() {
     } catch { return null; }
   };
 
+  const fetchSuggestions = async () => {
+    if (!state || !playerId || !player) return;
+    setLoadingSuggestions(true);
+    try {
+      const res = await fetch('/api/simulation/suggest-actions', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          player: { id: player.id, name: player.name, type: player.type, state: player.state },
+          worldContext: state.context,
+          otherAgents: state.agents.filter(a => a.id !== playerId).map(a => ({ name: a.name, type: a.type, state: a.state })),
+          goal,
+          recentHistory: state.history.slice(-3)
+        }),
+      });
+      if (res.ok) {
+        const data = await res.json();
+        if (data.success) setSuggestedActions(data.actions);
+      }
+    } catch (e) {
+      console.error('Failed to fetch suggestions:', e);
+    }
+    setLoadingSuggestions(false);
+  };
+
+  const endGame = async () => {
+    if (!state || !player || loading) return;
+    setAnalyzingGame(true);
+    setAuto(false);
+    
+    try {
+      const res = await fetch('/api/simulation/analyze', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          gameHistory: state.history,
+          playerName: player.name,
+          playerGoal: goal,
+          agents: state.agents,
+          finalContext: state.context
+        }),
+      });
+      
+      if (!res.ok) throw new Error('Failed to analyze game');
+      const data = await res.json();
+      
+      if (data.success) {
+        setGameAnalysis(data.analysis);
+        setShowAnalysis(true);
+      }
+    } catch (e) {
+      console.error('Failed to analyze game:', e);
+      setError('Failed to generate analysis');
+    }
+    setAnalyzingGame(false);
+  };
+
+  // Fetch suggestions when ready to act
+  useEffect(() => {
+    // Clear old suggestions first
+    setSuggestedActions([]);
+    setLoadingSuggestions(false);
+    
+    // Only fetch if conditions are right
+    if (!isLeaf || !playerId || !state || loading || auto) {
+      return;
+    }
+    
+    // Fetch suggestions after a small delay
+    setLoadingSuggestions(true);
+    const t = setTimeout(() => {
+      fetchSuggestions();
+    }, 300);
+    
+    return () => clearTimeout(t);
+  }, [currentId, isLeaf, playerId, state?.turn, loading, auto]);
+
   useEffect(() => {
     if (!auto || loading || !isLeaf || !playerId) return;
     const go = async () => {
       if (!autoRef.current) return;
+      setLoadingPhase('AI thinking...');
+      setLoading(true);
       const act = await getAutoAction();
+      setLoading(false);
+      setLoadingPhase('');
       if (act && autoRef.current) await turn(act);
     };
     const t = setTimeout(go, 600);
@@ -546,7 +1005,7 @@ export default function Home() {
             {PRESETS.map((p, i) => (
               <button 
                 key={i} 
-                onClick={() => setScenario(p.scenario)} 
+                onClick={() => { setScenario(p.scenario); setScenarioName(p.name); }} 
                 className={`px-3 py-1.5 rounded-full text-sm transition-all ${
                   scenario === p.scenario 
                     ? 'bg-stone-900 text-white' 
@@ -593,13 +1052,28 @@ export default function Home() {
             )}
           </div>
 
-          <button 
-            onClick={init} 
-            disabled={loading || !scenario.trim()} 
-            className="w-full py-4 bg-stone-900 text-white rounded-2xl font-medium disabled:opacity-40 hover:bg-stone-800 transition-colors"
-          >
-            {loading ? 'Creating world...' : 'Begin Simulation'}
-          </button>
+          <div className="space-y-2">
+            <button 
+              onClick={init} 
+              disabled={loading || !scenario.trim()} 
+              className="w-full py-4 bg-stone-900 text-white rounded-2xl font-medium disabled:opacity-40 hover:bg-stone-800 transition-colors relative overflow-hidden"
+            >
+              {loading && (
+                <div className="absolute inset-0 flex items-center justify-center bg-stone-900">
+                  <div className="flex items-center gap-3">
+                    <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                    <span>{loadingPhase || 'Creating world...'}</span>
+                  </div>
+                </div>
+              )}
+              <span className={loading ? 'opacity-0' : ''}>Begin Simulation</span>
+            </button>
+            {loading && (
+              <div className="h-1 bg-stone-200 rounded-full overflow-hidden">
+                <div className="h-full bg-stone-500 animate-loading-bar" />
+              </div>
+            )}
+          </div>
 
           {error && <p className="text-center text-rose-600 text-sm">{error}</p>}
         </div>
@@ -619,13 +1093,25 @@ export default function Home() {
       <aside className="w-72 bg-white border-r border-stone-200 flex flex-col shrink-0 sticky top-0 h-screen">
         <div className="p-5 border-b border-stone-100">
           <div className="flex items-center justify-between">
-            <span className="font-medium text-stone-900">Power Dynamics</span>
-            <button 
-              onClick={() => { setStarted(false); setNodes([]); setAuto(false); }} 
-              className="text-xs text-stone-400 hover:text-stone-600 transition-colors"
-            >
-              Reset
-            </button>
+            <span className="font-medium text-stone-900 truncate">{scenarioName || 'Simulation'}</span>
+            <div className="flex items-center gap-2 shrink-0 ml-2">
+              {playerId && state && (
+                <button 
+                  onClick={endGame}
+                  disabled={analyzingGame || loading || state.turn === 0}
+                  className="text-xs bg-stone-800 text-white hover:bg-stone-700 px-3 py-1.5 rounded-lg transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+                  title={state.turn === 0 ? 'Play at least one turn first' : 'End game and see analysis'}
+                >
+                  {analyzingGame ? 'Analyzing...' : 'End Game'}
+                </button>
+              )}
+              <button 
+                onClick={() => { setStarted(false); setNodes([]); setAuto(false); setGameAnalysis(null); setShowAnalysis(false); }} 
+                className="text-xs text-stone-400 hover:text-stone-600 transition-colors"
+              >
+                Reset
+              </button>
+            </div>
           </div>
         </div>
 
@@ -649,7 +1135,10 @@ export default function Home() {
           <div className="p-5 space-y-1">
             {timeline.map((node, idx) => {
               const isCurrent = node.id === currentId;
-              const headline = node.state.history[node.state.history.length - 1]?.headline || 'Start';
+              // Use streaming headline if available, otherwise fall back to history
+              const headline = node.isStreaming 
+                ? (node.streamingHeadline || 'Generating...') 
+                : (node.state.history[node.state.history.length - 1]?.headline || 'Start');
               const siblings = getSiblings(node);
 
               return (
@@ -662,14 +1151,14 @@ export default function Home() {
                         : 'hover:bg-stone-50 text-stone-600'
                     }`}
                   >
-                    <span className={`font-mono text-xs w-4 shrink-0 ${isCurrent ? 'text-stone-400' : 'text-stone-400'}`}>
+                    <span className={`font-mono text-xs w-4 shrink-0 ${isCurrent ? 'text-stone-300' : 'text-stone-400'}`}>
                       {node.state.turn}
                     </span>
                     <span className="truncate flex-1">
-                      <RichText>{headline}</RichText>
+                      <RichText inheritColor>{headline}</RichText>
                     </span>
                     {playerId && node.score !== null && (
-                      <span className={`text-xs font-mono ${isCurrent ? 'text-stone-400' : ''}`}>
+                      <span className={`text-xs font-mono ${isCurrent ? 'text-stone-300' : 'text-stone-500'}`}>
                         {node.score}
                       </span>
                     )}
@@ -719,8 +1208,11 @@ export default function Home() {
               </span>
             )}
           </div>
+          {/* Loading bar - show during narration streaming or other loading (not during modal) */}
           <div className="h-0.5 bg-stone-100">
-            {loading && <div className="h-full bg-stone-400 animate-loading-bar" />}
+            {(loading && !current?.isStreaming) || (current?.isStreaming && current.streamingHeadline) ? (
+              <div className="h-full bg-stone-400 animate-loading-bar" />
+            ) : null}
           </div>
         </header>
 
@@ -768,20 +1260,45 @@ export default function Home() {
             )}
           </div>
 
-          {/* Story Text */}
-          <article className="space-y-4">
-            <h1 className="text-xl font-medium text-stone-900 leading-snug">
-              <RichText>{story?.headline || 'Simulation Ready'}</RichText>
-            </h1>
-            <div className="text-stone-600 leading-relaxed space-y-3 text-[15px]">
-              {(story?.narration || state?.context || '').split('\n').filter(Boolean).map((para, i) => (
-                <p key={i}><RichText>{para}</RichText></p>
-              ))}
+          {/* Player's submitted action - only during narrating phase (modal handles actions phase) */}
+          {current?.isStreaming && current.streamingPhase === 'narrating' && pendingAction && player && (
+            <div className="bg-stone-100 rounded-xl px-4 py-3 flex items-start gap-3">
+              <div className="w-8 h-8 rounded-full bg-stone-200 flex items-center justify-center flex-shrink-0">
+                <AgentIcon type={player.type} />
+              </div>
+              <div className="flex-1 min-w-0">
+                <div className="text-xs text-stone-500 mb-1">{player.name}</div>
+                <p className="text-sm text-stone-800 leading-relaxed">{pendingAction}</p>
+              </div>
             </div>
-          </article>
+          )}
 
-          {/* Player Action */}
-          {playerId && player && (
+          {/* Story Text */}
+          <StoryText
+            headline={current?.isStreaming ? (current.streamingHeadline || '') : (story?.headline || 'Simulation Ready')}
+            narration={current?.isStreaming ? (current.streamingNarration || '') : (story?.narration || state?.context || '')}
+            isNew={current?.isNew || false}
+            isStreaming={current?.isStreaming || false}
+            onViewed={() => {
+              if (currentId && current?.isNew) {
+                setNodes(prev => prev.map(n => n.id === currentId ? { ...n, isNew: false } : n));
+              }
+            }}
+          />
+          
+          {/* Turn simulation modal - shows while streaming until we have headline */}
+          {current?.isStreaming && !current.streamingHeadline && state && (
+            <TurnModal
+              agents={state.agents}
+              streamingActions={current.streamingAgentActions || []}
+              phase={current.streamingPhase || 'actions'}
+              playerAction={pendingAction}
+              playerName={player?.name}
+            />
+          )}
+
+          {/* Player Action Input - only when not streaming */}
+          {playerId && player && !current?.isStreaming && (
             <div className="bg-white rounded-2xl border border-stone-200 p-5 shadow-sm">
               <div className="flex items-center gap-3 mb-4">
                 <AgentIcon type={player.type} />
@@ -803,31 +1320,73 @@ export default function Home() {
                   </button>
                 </div>
               ) : (
-                <div className="flex gap-2">
-                  <input
-                    value={action}
-                    onChange={e => setAction(e.target.value)}
-                    onKeyDown={e => e.key === 'Enter' && action.trim() && !loading && turn(action)}
-                    placeholder="What do you do?"
-                    disabled={loading}
-                    autoFocus
-                    className="flex-1 px-4 py-2.5 rounded-xl bg-stone-50 border border-stone-200 text-sm focus:outline-none focus:border-stone-400 focus:bg-white disabled:opacity-50 transition-colors"
-                  />
-                  <button 
-                    onClick={() => turn(action)} 
-                    disabled={loading || !action.trim()} 
-                    className="px-4 py-2.5 bg-stone-900 text-white text-sm font-medium rounded-xl hover:bg-stone-800 disabled:opacity-40 transition-colors"
-                  >
-                    Go
-                  </button>
-                  <button 
-                    onClick={() => setAuto(true)} 
-                    disabled={loading} 
-                    className="px-3 py-2.5 bg-stone-100 text-stone-600 rounded-xl hover:bg-stone-200 disabled:opacity-40 transition-colors"
-                    title="Let AI play"
-                  >
-                    <Zap size={16} />
-                  </button>
+                <div className="space-y-3">
+                  {/* Suggested Actions */}
+                  {loadingSuggestions ? (
+                    <div className="space-y-2">
+                      {[1, 2, 3].map(i => (
+                        <div key={i} className="h-16 bg-stone-50 rounded-xl animate-pulse" />
+                      ))}
+                    </div>
+                  ) : suggestedActions.length > 0 ? (
+                    <div className="space-y-2">
+                      {suggestedActions.map((suggestion, idx) => {
+                        const strategyColors = {
+                          aggressive: 'border-red-200 hover:border-red-300 hover:bg-red-50/50',
+                          defensive: 'border-blue-200 hover:border-blue-300 hover:bg-blue-50/50',
+                          diplomatic: 'border-green-200 hover:border-green-300 hover:bg-green-50/50'
+                        };
+                        const strategyIcons = {
+                          aggressive: '⚡',
+                          defensive: '🛡️',
+                          diplomatic: '🤝'
+                        };
+                        return (
+                          <button
+                            key={idx}
+                            onClick={() => turn(suggestion.title + ': ' + suggestion.description)}
+                            disabled={loading}
+                            className={`w-full p-3 rounded-xl border bg-white text-left transition-all ${strategyColors[suggestion.strategy]} disabled:opacity-50`}
+                          >
+                            <div className="flex items-start gap-2">
+                              <span className="text-base">{strategyIcons[suggestion.strategy]}</span>
+                              <div className="flex-1 min-w-0">
+                                <span className="font-medium text-stone-900 text-sm">{suggestion.title}</span>
+                                <p className="text-xs text-stone-500 mt-0.5 line-clamp-2">{suggestion.description}</p>
+                              </div>
+                            </div>
+                          </button>
+                        );
+                      })}
+                    </div>
+                  ) : null}
+                  
+                  {/* Custom action input */}
+                  <div className="flex gap-2">
+                    <input
+                      value={action}
+                      onChange={e => setAction(e.target.value)}
+                      onKeyDown={e => e.key === 'Enter' && action.trim() && !loading && turn(action)}
+                      placeholder="Or type your own action..."
+                      disabled={loading}
+                      className="flex-1 px-4 py-2.5 rounded-xl bg-stone-50 border border-stone-200 text-sm focus:outline-none focus:border-stone-400 focus:bg-white disabled:opacity-50 transition-colors"
+                    />
+                    <button 
+                      onClick={() => turn(action)} 
+                      disabled={loading || !action.trim()} 
+                      className="px-4 py-2.5 bg-stone-900 text-white text-sm font-medium rounded-xl hover:bg-stone-800 disabled:opacity-40 transition-colors"
+                    >
+                      Go
+                    </button>
+                    <button 
+                      onClick={() => setAuto(true)} 
+                      disabled={loading} 
+                      className="px-3 py-2.5 bg-stone-100 text-stone-600 rounded-xl hover:bg-stone-200 disabled:opacity-40 transition-colors"
+                      title="Let AI play"
+                    >
+                      <Zap size={16} />
+                    </button>
+                  </div>
                 </div>
               )}
             </div>
@@ -924,6 +1483,137 @@ export default function Home() {
                   </div>
                 </div>
               )}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Game Analysis Modal */}
+      {showAnalysis && gameAnalysis && (
+        <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50 p-6 overflow-y-auto">
+          <div className="bg-white rounded-3xl shadow-2xl w-full max-w-2xl max-h-[90vh] overflow-y-auto">
+            {/* Header */}
+            <div className="sticky top-0 bg-white border-b border-stone-100 p-6 rounded-t-3xl">
+              <div className="flex items-start justify-between">
+                <div>
+                  <p className="text-xs text-stone-400 uppercase tracking-wider font-medium mb-1">Game Over</p>
+                  <h2 className="text-2xl font-medium text-stone-900">{gameAnalysis.headline}</h2>
+                </div>
+                <button 
+                  onClick={() => setShowAnalysis(false)} 
+                  className="p-2 hover:bg-stone-100 rounded-xl transition-colors"
+                >
+                  <X size={20} className="text-stone-400" />
+                </button>
+              </div>
+            </div>
+
+            <div className="p-6 space-y-8">
+              {/* Grade */}
+              <div className="flex items-center gap-6">
+                <div className={`w-20 h-20 rounded-2xl flex items-center justify-center text-3xl font-bold ${
+                  gameAnalysis.playerPerformance.grade === 'S' ? 'bg-yellow-100 text-yellow-700' :
+                  gameAnalysis.playerPerformance.grade === 'A' ? 'bg-green-100 text-green-700' :
+                  gameAnalysis.playerPerformance.grade === 'B' ? 'bg-blue-100 text-blue-700' :
+                  gameAnalysis.playerPerformance.grade === 'C' ? 'bg-stone-100 text-stone-700' :
+                  gameAnalysis.playerPerformance.grade === 'D' ? 'bg-orange-100 text-orange-700' :
+                  'bg-red-100 text-red-700'
+                }`}>
+                  {gameAnalysis.playerPerformance.grade}
+                </div>
+                <div>
+                  <p className="font-medium text-stone-900">{gameAnalysis.playerPerformance.verdict}</p>
+                  <p className="text-sm text-stone-500 mt-1">Your performance toward: {goal}</p>
+                </div>
+              </div>
+
+              {/* Summary */}
+              <div>
+                <p className="text-sm text-stone-700 leading-relaxed whitespace-pre-wrap">
+                  <RichText>{gameAnalysis.summary}</RichText>
+                </p>
+              </div>
+
+              {/* Turning Points */}
+              <div>
+                <h3 className="text-xs text-stone-400 uppercase tracking-wider font-medium mb-3">Key Turning Points</h3>
+                <div className="space-y-3">
+                  {gameAnalysis.turningPoints.map((tp, i) => (
+                    <div key={i} className="flex gap-3 p-3 bg-stone-50 rounded-xl">
+                      <span className="text-xs font-mono text-stone-400 shrink-0 w-10">T{tp.turn}</span>
+                      <div>
+                        <p className="text-sm font-medium text-stone-900">{tp.event}</p>
+                        <p className="text-xs text-stone-500 mt-0.5">{tp.impact}</p>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              {/* What Went Right/Wrong */}
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <h3 className="text-xs text-stone-400 uppercase tracking-wider font-medium mb-3 flex items-center gap-1">
+                    <span className="text-green-500">✓</span> What Went Right
+                  </h3>
+                  <ul className="space-y-2">
+                    {gameAnalysis.whatWentRight.map((item, i) => (
+                      <li key={i} className="text-sm text-stone-600 flex gap-2">
+                        <span className="text-green-500 shrink-0">•</span>
+                        {item}
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+                <div>
+                  <h3 className="text-xs text-stone-400 uppercase tracking-wider font-medium mb-3 flex items-center gap-1">
+                    <span className="text-red-500">✗</span> What Went Wrong
+                  </h3>
+                  <ul className="space-y-2">
+                    {gameAnalysis.whatWentWrong.map((item, i) => (
+                      <li key={i} className="text-sm text-stone-600 flex gap-2">
+                        <span className="text-red-500 shrink-0">•</span>
+                        {item}
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              </div>
+
+              {/* Alternative Path */}
+              <div className="p-4 bg-blue-50 rounded-xl border border-blue-100">
+                <h3 className="text-xs text-blue-600 uppercase tracking-wider font-medium mb-2">What You Could Have Done</h3>
+                <p className="text-sm text-blue-900">{gameAnalysis.alternativePath}</p>
+              </div>
+
+              {/* Final Standings */}
+              <div>
+                <h3 className="text-xs text-stone-400 uppercase tracking-wider font-medium mb-3">Final Standings</h3>
+                <div className="grid grid-cols-2 gap-2">
+                  {gameAnalysis.finalStandings.map((standing, i) => (
+                    <div key={i} className="p-3 bg-stone-50 rounded-xl">
+                      <p className="text-sm font-medium text-stone-900">{standing.name}</p>
+                      <p className="text-xs text-stone-500 mt-0.5">{standing.outcome}</p>
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              {/* Play Again */}
+              <div className="pt-4 border-t border-stone-100 flex gap-3">
+                <button
+                  onClick={() => { setShowAnalysis(false); }}
+                  className="flex-1 py-3 bg-stone-100 text-stone-700 text-sm font-medium rounded-xl hover:bg-stone-200 transition-colors"
+                >
+                  Continue Viewing
+                </button>
+                <button
+                  onClick={() => { setStarted(false); setNodes([]); setGameAnalysis(null); setShowAnalysis(false); }}
+                  className="flex-1 py-3 bg-stone-900 text-white text-sm font-medium rounded-xl hover:bg-stone-800 transition-colors"
+                >
+                  Play Again
+                </button>
+              </div>
             </div>
           </div>
         </div>

@@ -62,6 +62,53 @@ export class ApiClient {
   }
 
   /**
+   * Stream Claude tool call, yielding partial JSON as it arrives
+   */
+  async *streamSimulatorWithTool<T>(
+    systemPrompt: string,
+    userMessage: string,
+    toolName: string,
+    toolDescription: string,
+    toolSchema: any,
+  ): AsyncGenerator<{ partial: string; done: boolean; result?: T }> {
+    const stream = this.client.messages.stream({
+      model: "claude-haiku-4-5",
+      max_tokens: 8192,
+      system: systemPrompt,
+      messages: [{ role: "user", content: userMessage }],
+      tools: [
+        {
+          name: toolName,
+          description: toolDescription,
+          input_schema: toolSchema,
+        },
+      ],
+      tool_choice: { type: "tool", name: toolName },
+    });
+
+    let jsonAccumulator = '';
+    
+    for await (const event of stream) {
+      if (event.type === 'content_block_delta') {
+        const delta = event.delta as any;
+        if (delta.type === 'input_json_delta' && delta.partial_json) {
+          jsonAccumulator += delta.partial_json;
+          yield { partial: jsonAccumulator, done: false };
+        }
+      }
+    }
+
+    // Get final result
+    const finalMessage = await stream.finalMessage();
+    const toolUse = finalMessage.content.find((block) => block.type === "tool_use");
+    if (!toolUse || toolUse.type !== "tool_use") {
+      throw new Error("No tool use in response");
+    }
+
+    yield { partial: jsonAccumulator, done: true, result: toolUse.input as T };
+  }
+
+  /**
    * Call Claude for Agent role (individual agent perspective)
    */
   async callAgent(systemPrompt: string, userMessage: string): Promise<string> {

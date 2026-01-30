@@ -8,7 +8,7 @@ export const maxDuration = 60;
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
-    const { headline, narration } = body;
+    const { headline, narration, agents } = body;
 
     if (!headline || !narration) {
       return NextResponse.json(
@@ -23,23 +23,29 @@ export async function POST(request: NextRequest) {
 
     const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
 
-    // New Yorker cartoon style - witty, understated, clever visual humor
-    const imagePrompt = `A single-panel New Yorker magazine cartoon depicting this scene:
+    // Build character descriptions from agents if available
+    let characterGuide = '';
+    if (agents && agents.length > 0) {
+      const keyAgents = agents.slice(0, 5).map((a: any) => `${a.name} (${a.type})`).join(', ');
+      characterGuide = `\nKEY CHARACTERS to feature: ${keyAgents}. Depict them as diverse individuals - vary ethnicities, genders, ages. Make each visually distinctive.`;
+    }
 
-"${headline}"
+    // Zany but tasteful editorial illustration with diverse characters
+    const imagePrompt = `Funny satirical illustration of: "${headline}"
 
-What's happening: ${narration.slice(0, 250)}
+Context: ${narration.slice(0, 250)}
 
-CRITICAL STYLE REQUIREMENTS:
-- Classic New Yorker cartoon aesthetic: simple ink linework, minimal color (light watercolor wash), lots of white space
-- The humor should be DRY and WITTY, not wacky - think a knowing smirk, not a belly laugh
-- Find the ABSURD TRUTH in the situation - the joke is how relatable/ridiculous the power dynamics are
-- Characters should look like normal professionals in absurd situations (boardrooms, offices, conferences)
-- Body language and facial expressions carry the comedy - subtle exasperation, false confidence, quiet panic
-- One clear visual gag or ironic juxtaposition that makes the viewer go "hah, yeah"
-- NO TEXT, NO CAPTIONS, NO WORDS - the image alone must be funny
-- Sophisticated humor that rewards intelligence - the kind of joke you'd explain at a dinner party
-- Clean, elegant composition - this could hang in a waiting room at Andreessen Horowitz`;
+STYLE: Elegant editorial cartoon, like Monocle meets Gary Larson. Navy, cream, and coral palette. Clean linework.
+${characterGuide}
+DIVERSITY: Cast must be diverse - include women leaders, people of color in power, different ages, varied body types. A global cast, not just white men in suits. Make it feel like a modern international scene.
+
+COMEDY APPROACH (pick one): 
+- Absurd scale (tiny person, giant object)
+- Literal metaphor made visual
+- Calm professionals ignoring chaos behind them
+- One bizarre detail that doesn't belong
+
+VIBE: Serious diverse professionals treating insanity as normal. Wes Anderson directing a global political thriller. NO TEXT IN IMAGE.`;
 
 
     console.log("🎨 Generating image for:", headline.slice(0, 50));
@@ -60,17 +66,30 @@ CRITICAL STYLE REQUIREMENTS:
     const candidate = response.candidates?.[0];
     const parts = candidate?.content?.parts;
 
+    // Log what we got back for debugging
+    if (!parts || parts.length === 0) {
+      console.error("❌ No parts in response. Candidate:", JSON.stringify(candidate, null, 2));
+      throw new Error("No content in response - may have been filtered");
+    }
+
     let imageData: string | null = null;
-    if (parts) {
-      for (const part of parts) {
-        if (part.inlineData?.data) {
-          imageData = part.inlineData.data;
-          break;
-        }
+    let textResponse: string | null = null;
+    
+    for (const part of parts) {
+      if (part.inlineData?.data) {
+        imageData = part.inlineData.data;
+        break;
+      }
+      if (part.text) {
+        textResponse = part.text;
       }
     }
 
     if (!imageData) {
+      if (textResponse) {
+        console.error("❌ Got text instead of image:", textResponse.slice(0, 200));
+        throw new Error(`Model returned text instead of image: ${textResponse.slice(0, 100)}`);
+      }
       throw new Error("No image data returned");
     }
 

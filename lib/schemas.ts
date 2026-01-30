@@ -28,24 +28,10 @@ export const WORLD_SEED_SCHEMA = {
 export const TURN_RESULT_SCHEMA = {
   type: 'object',
   properties: {
-    headline: {
-      type: 'string',
-      description: 'Punchy 5-10 word headline capturing the most dramatic event this turn'
-    },
-    narration: {
-      type: 'string',
-      description: 'Dramatic narration of key events, power shifts, and emergent dynamics this turn'
-    },
-    worldHeadline: {
-      type: 'string', 
-      description: '5-10 word summary of the current world state and power balance'
-    },
-    context: {
-      type: 'string',
-      description: 'Updated world context reflecting new power balance, resources, and situation'
-    },
+    // Agent actions come FIRST so Claude thinks about what happens before narrating
     agentUpdates: {
       type: 'array',
+      description: 'What each agent DOES this turn. Generate this FIRST before writing the narrative.',
       items: {
         type: 'object',
         properties: {
@@ -55,6 +41,23 @@ export const TURN_RESULT_SCHEMA = {
         },
         required: ['agentId', 'action', 'state'],
       },
+    },
+    // Then the narrative summarizing what happened
+    headline: {
+      type: 'string',
+      description: 'Punchy 5-10 word headline capturing the most dramatic event this turn'
+    },
+    narration: {
+      type: 'string',
+      description: 'Dramatic narration of the events described in agentUpdates - power shifts, consequences, emergent dynamics'
+    },
+    worldHeadline: {
+      type: 'string', 
+      description: '5-10 word summary of the current world state and power balance'
+    },
+    context: {
+      type: 'string',
+      description: 'Updated world context reflecting new power balance, resources, and situation'
     },
     newAgents: {
       type: 'array',
@@ -74,7 +77,7 @@ export const TURN_RESULT_SCHEMA = {
       description: 'IDs of agents that have been eliminated, absorbed, or otherwise removed'
     },
   },
-  required: ['headline', 'narration', 'worldHeadline', 'context', 'agentUpdates'],
+  required: ['agentUpdates', 'headline', 'narration', 'worldHeadline', 'context'],
 };
 
 export const GOAL_SCORE_SCHEMA = {
