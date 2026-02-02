@@ -14,7 +14,7 @@ const ANALYSIS_SCHEMA = {
     },
     summary: {
       type: 'string',
-      description: '2-3 paragraph narrative arc of the entire game - the journey, key moments, and conclusion'
+      description: '1-2 short paragraphs summarizing the arc - keep it tight and clear'
     },
     playerPerformance: {
       type: 'object',
@@ -116,7 +116,7 @@ export async function POST(request: NextRequest) {
       `Turn ${h.turn}: ${h.action}`
     ).join('\n') || 'No recorded actions';
 
-    const prompt = `Analyze this completed simulation game and provide a comprehensive post-game report.
+    const prompt = `Analyze this completed simulation game and provide a concise post-game report.
 
 ## PLAYER INFO
 - **Name**: ${playerName}
@@ -142,7 +142,7 @@ You MUST provide ALL of the following in your analysis:
 
 1. **headline**: A dramatic 5-10 word summary (e.g., "The Reformer Who Changed Everything")
 
-2. **summary**: 2-3 paragraphs describing the full arc of the game
+2. **summary**: 1-2 short paragraphs (2-4 sentences total) describing the full arc of the game
 
 3. **playerPerformance**: 
    - grade: One of S/A/B/C/D/F based on goal achievement
@@ -158,7 +158,7 @@ You MUST provide ALL of the following in your analysis:
 
 8. **finalStandings**: Where each major agent ended up
 
-Be specific and reference actual events from the game. Make it entertaining like a sports commentary.`;
+Be specific and reference actual events from the game. Keep it crisp, clear, and a bit punchy.`;
 
     console.log('📊 Generating game analysis for', playerName, 'with', gameHistory.length, 'turns...');
 

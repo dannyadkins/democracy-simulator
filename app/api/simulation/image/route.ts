@@ -23,11 +23,24 @@ export async function POST(request: NextRequest) {
 
     const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
 
+    const clip = (value: string | undefined, limit: number) => {
+      if (!value) return '';
+      const trimmed = value.replace(/\s+/g, ' ').trim();
+      if (!trimmed) return '';
+      return trimmed.length > limit ? `${trimmed.slice(0, limit).trim()}...` : trimmed;
+    };
+
     // Build character descriptions from agents if available
     let characterGuide = '';
     if (agents && agents.length > 0) {
-      const keyAgents = agents.slice(0, 5).map((a: any) => `${a.name} (${a.type})`).join(', ');
-      characterGuide = `\nKEY CHARACTERS to feature: ${keyAgents}. Depict them as diverse individuals - vary ethnicities, genders, ages. Make each visually distinctive.`;
+      const keyAgents = agents.slice(0, 5).map((a: any) => {
+        const avatarNote = a.avatarDescription ? `Appearance: ${clip(a.avatarDescription, 160)}` : '';
+        const avatarPrompt = a.avatarPrompt ? `Avatar spec: ${clip(a.avatarPrompt, 240)}` : '';
+        const appearance = a.appearance ? `Explicit look: ${clip(a.appearance, 220)}` : '';
+        const details = [appearance, avatarNote, avatarPrompt].filter(Boolean).join(' | ');
+        return `${a.name} (${a.type})${details ? ` — ${details}` : ''}`;
+      }).join(', ');
+      characterGuide = `\nCHARACTER REFERENCES (optional, do not force inclusion): ${keyAgents}. Use these as visual references only if they naturally fit the scene; otherwise keep them as background cameos or omit. If a named character appears, match their explicit appearance cues closely and avoid inventing extra traits.`;
     }
 
     // Zany but tasteful editorial illustration with diverse characters
@@ -35,7 +48,10 @@ export async function POST(request: NextRequest) {
 
 Context: ${narration.slice(0, 250)}
 
-STYLE: Elegant editorial cartoon, like Monocle meets Gary Larson. Navy, cream, and coral palette. Clean linework.
+STYLE: Bold absurdist editorial tableau with playful surrealism. Think witty magazine cover meets theatrical stage set.
+MEDIUM: 2D illustration with crisp ink linework, gouache color blocks, halftone shadows, and subtle paper-cut collage texture. No photorealism.
+PALETTE: Warm parchment, deep navy, teal, coral, and soft gold accents. Strong contrast, gentle grain.
+COMPOSITION: Cinematic wide shot with a single focal gag, clear silhouettes, and supporting background details that reward a second look.
 ${characterGuide}
 DIVERSITY: Cast must be diverse - include women leaders, people of color in power, different ages, varied body types. A global cast, not just white men in suits. Make it feel like a modern international scene.
 
@@ -45,7 +61,7 @@ COMEDY APPROACH (pick one):
 - Calm professionals ignoring chaos behind them
 - One bizarre detail that doesn't belong
 
-VIBE: Serious diverse professionals treating insanity as normal. Wes Anderson directing a global political thriller. NO TEXT IN IMAGE.`;
+VIBE: Serious diverse professionals treating insanity as normal, with a smart absurdist edge. Slightly theatrical, elegant, and quirky. NO TEXT IN IMAGE.`;
 
 
     console.log("🎨 Generating image for:", headline.slice(0, 50));

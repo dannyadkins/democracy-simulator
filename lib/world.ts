@@ -1,5 +1,6 @@
 import fs from 'fs/promises';
 import path from 'path';
+import { createAvatarPrompt, type AgentAvatar } from './avatars';
 
 export interface AgentAction {
   turn: number;
@@ -11,7 +12,9 @@ export interface Agent {
   name: string;
   type: string; // Category: AI, Human, Organization, Government, etc.
   state: string; // Everything about this agent in natural language
+  appearance?: string; // Explicit visual description
   actionHistory: AgentAction[]; // History of actions taken
+  avatar?: AgentAvatar;
 }
 
 export interface TurnEntry {
@@ -52,19 +55,24 @@ export class WorldStateManager {
    */
   initializeFromSeed(seedData: {
     context: string;
-    agents: Array<{ name: string; type: string; state: string }>;
+    agents: Array<{ name: string; type: string; state: string; appearance?: string }>;
   }): void {
     this.state = {
       turn: 0,
       context: seedData.context,
       worldHeadline: 'Simulation begins...',
-      agents: seedData.agents.map((agent, index) => ({
-        id: `agent-${Date.now()}-${index}`,
-        name: agent.name,
-        type: agent.type,
-        state: agent.state,
-        actionHistory: [],
-      })),
+      agents: seedData.agents.map((agent, index) => {
+        const id = `agent-${Date.now()}-${index}`;
+        return {
+          id,
+          name: agent.name,
+          type: agent.type,
+          state: agent.state,
+          appearance: agent.appearance,
+          actionHistory: [],
+          avatar: createAvatarPrompt(agent.name, agent.type, id, agent.appearance),
+        };
+      }),
       history: [],
     };
   }
@@ -100,13 +108,16 @@ export class WorldStateManager {
   /**
    * Add a new agent
    */
-  addAgent(agent: { name: string; type: string; state: string }): Agent {
+  addAgent(agent: { name: string; type: string; state: string; appearance?: string }): Agent {
+    const id = `agent-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
     const newAgent: Agent = {
-      id: `agent-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
+      id,
       name: agent.name,
       type: agent.type,
       state: agent.state,
+      appearance: agent.appearance,
       actionHistory: [],
+      avatar: createAvatarPrompt(agent.name, agent.type, id, agent.appearance),
     };
     this.state.agents.push(newAgent);
     return newAgent;

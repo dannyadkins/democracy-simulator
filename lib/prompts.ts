@@ -16,7 +16,8 @@ FORMATTING:
 - Use *italics* for emphasis and internal thoughts
 - Track in-world dates/times explicitly
 - Turns can cover variable time spans based on intensity
-- Be concise—every sentence should earn its place`;
+- Be concise—every sentence should earn its place
+- Prefer short sentences and avoid fluff`;
 
 
 export function getSeedingPrompt(startingConditions: string, playerInfo?: { name: string; description: string; goal?: string }): string {
@@ -31,7 +32,7 @@ The player's state description MUST reflect their goal as their core motivation.
 
   return `Create a rich simulation based on: ${startingConditions}${playerNote}
 
-RETURN:
+RETURN (keep outputs crisp and short):
 - context: Starting world state (2 short paragraphs). Include:
   - **Current in-world date**
   - Key power dynamics and tensions
@@ -41,9 +42,10 @@ RETURN:
 - agents: Create 8-15 key players. For each:
   - name: Name or organization
   - type: AI, Human, Organization, Government, Corporation, Media, Labor, or Military
-  - state: Goals, resources, key relationships, position (2-3 sentences max)
+- state: Goals, resources, key relationships, position (2 sentences max)
+- appearance: EXPLICIT visual description (1 sentence). Include age, gender presentation, ethnicity/skin tone, hair, face/feature cues, clothing/accessories, and any distinctive markers. Be concrete and specific. Avoid stereotypes.
 
-Be vivid but concise. Make the scenario feel alive with existing tensions ready to evolve.`;
+Be vivid but concise. Keep the wording tight and clear.`;
 }
 
 
@@ -104,12 +106,14 @@ FORMATTING:
 - Include **new in-world date** in headline
 - Use **bold** for key events/names, *italics* for emphasis
 
-Return IN THIS ORDER:
+Return IN THIS ORDER (be succinct):
 1. agentUpdates: What EVERY agent does (1 sentence action + 1 sentence state update each)
 2. headline: Punchy headline with date (e.g., "**Feb 2025**: OpenAI Ships GPT-5")
-3. narration: 1-2 SHORT paragraphs narrating the key events—be punchy, not verbose
+3. narration: 1 SHORT paragraph (2-4 sentences) narrating the key events—be punchy, not verbose
 4. worldHeadline: Empty string
-5. context: Updated world state (2 sentences) with new date`;
+5. context: Updated world state (2 short sentences) with new date
+
+If you introduce any newAgents, include an explicit 1-sentence appearance description (age, gender presentation, ethnicity/skin tone, hair, face/feature cues, clothing/accessories, distinctive markers).`;
 }
 
 
@@ -144,7 +148,7 @@ Score from 0-100:
 - 60-80: Making meaningful progress
 - 80-100: Goal is close or achieved
 
-Be objective. Consider:
+Be objective and succinct. Consider:
 - Concrete changes in power and resources
 - Relationship and alliance shifts
 - Strategic position changes
@@ -170,7 +174,7 @@ ${agentList}
 
 ---
 
-Return a score array with EXACTLY ${agents.length} entries. For each agent above, return:
+Return a score array with EXACTLY ${agents.length} entries. Keep notes minimal. For each agent above, return:
 - agentId: Use the EXACT ID string shown in quotes above (e.g., "agent-1234567890-0")
 - score: 0-100 based on their position
 
@@ -221,5 +225,5 @@ Consider:
 - What are others likely to do?
 - What second-order effects might your action have?
 
-Provide a specific, concrete action. Not just "gather information" but WHO you contact and HOW. Not just "form alliance" but WITH WHOM and offering WHAT.`;
+Provide a specific, concrete action in 1-2 sentences. Not just "gather information" but WHO you contact and HOW. Not just "form alliance" but WITH WHOM and offering WHAT.`;
 }

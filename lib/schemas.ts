@@ -17,8 +17,9 @@ export const WORLD_SEED_SCHEMA = {
           name: { type: 'string', description: 'Agent name' },
           type: { type: 'string', description: 'Category: AI, Human, Organization, Government, Corporation, Media, etc.' },
           state: { type: 'string', description: 'Natural language description - goals, resources, capabilities, strategy, relationships, power level' },
+          appearance: { type: 'string', description: 'Explicit visual description: age, gender presentation, ethnicity/skin tone, hair, face/feature cues, clothing/accessories, distinctive markers' },
         },
-        required: ['name', 'type', 'state'],
+        required: ['name', 'type', 'state', 'appearance'],
       },
     },
   },
@@ -67,6 +68,7 @@ export const TURN_RESULT_SCHEMA = {
           name: { type: 'string' },
           type: { type: 'string', description: 'Category: AI, Human, Organization, Government, Corporation, Media, etc.' },
           state: { type: 'string' },
+          appearance: { type: 'string' },
         },
         required: ['name', 'type', 'state'],
       },
@@ -139,6 +141,7 @@ export interface WorldSeedResult {
     name: string;
     type: string;
     state: string;
+    appearance: string;
   }>;
 }
 

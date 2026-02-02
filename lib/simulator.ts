@@ -226,7 +226,8 @@ export class Simulator {
           this.world.addAgent({ 
             name: agent.name, 
             type: agent.type || 'Unknown', 
-            state: agent.state 
+            state: agent.state,
+            appearance: agent.appearance,
           });
         }
       }
