@@ -159,6 +159,7 @@ export interface TurnResult {
     name: string;
     type: string;
     state: string;
+    appearance?: string;
   }>;
   removedAgents?: string[];
 }
