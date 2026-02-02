@@ -68,8 +68,8 @@ const TYPE_ICONS: Record<string, typeof Bot> = {
 function AgentIcon({ type, size = 18 }: { type: string; size?: number }) {
   const Icon = TYPE_ICONS[type] || CircleDot;
   return (
-    <div className="w-9 h-9 rounded-full bg-stone-100 flex items-center justify-center shrink-0">
-      <Icon size={size} className="text-stone-500" strokeWidth={1.5} />
+    <div className="w-9 h-9 rounded-full bg-white border border-slate-200/70 shadow-sm ring-1 ring-[rgba(37,99,235,0.15)] flex items-center justify-center shrink-0 backdrop-blur">
+      <Icon size={size} className="text-slate-600" strokeWidth={1.6} />
     </div>
   );
 }
@@ -147,13 +147,13 @@ function TurnModal({
   const totalAgents = agents.length;
   
   return (
-    <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-      <div className="bg-white rounded-2xl shadow-2xl w-full max-w-lg max-h-[80vh] flex flex-col overflow-hidden">
+    <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+      <div className="glass-panel rounded-3xl w-full max-w-lg max-h-[80vh] flex flex-col overflow-hidden">
         {/* Header */}
-        <div className="px-6 py-4 border-b border-stone-100">
+        <div className="px-4 sm:px-6 py-4 border-b border-slate-200/60">
           <div className="flex items-center justify-between">
             <div>
-              <h2 className="font-medium text-stone-900">
+              <h2 className="font-display text-stone-900 text-lg">
                 {phase === 'actions' ? 'Simulating Turn' : 'Generating Narrative'}
               </h2>
               <p className="text-xs text-stone-500 mt-0.5">
@@ -163,14 +163,14 @@ function TurnModal({
                 }
               </p>
             </div>
-            <div className="w-8 h-8 rounded-full bg-stone-100 flex items-center justify-center">
-              <div className="w-4 h-4 border-2 border-stone-300 border-t-stone-600 rounded-full animate-spin" />
+            <div className="w-8 h-8 rounded-full bg-white border border-slate-200/70 flex items-center justify-center">
+              <div className="w-4 h-4 border-2 border-stone-300 border-t-[var(--accent)] rounded-full animate-spin" />
             </div>
           </div>
           {/* Progress bar */}
-          <div className="mt-3 h-1 bg-stone-100 rounded-full overflow-hidden">
+          <div className="mt-3 h-1.5 bg-slate-100 rounded-full overflow-hidden">
             <div 
-              className="h-full bg-stone-900 transition-all duration-500 ease-out"
+              className="h-full bg-gradient-to-r from-[var(--accent)] via-[var(--accent-3)] to-[var(--accent-2)] transition-all duration-500 ease-out"
               style={{ width: phase === 'actions' ? `${(completedCount / totalAgents) * 100}%` : '100%' }}
             />
           </div>
@@ -178,30 +178,30 @@ function TurnModal({
         
         {/* Player action */}
         {playerAction && playerName && (
-          <div className="px-6 py-3 bg-stone-50 border-b border-stone-100">
+          <div className="px-4 sm:px-6 py-3 bg-white border-b border-slate-200/60">
             <div className="flex items-start gap-3">
-              <div className="w-6 h-6 rounded-full bg-stone-200 flex items-center justify-center flex-shrink-0 mt-0.5">
-                <User size={12} className="text-stone-500" />
+              <div className="w-6 h-6 rounded-full bg-white border border-slate-200/70 flex items-center justify-center flex-shrink-0 mt-0.5">
+                <User size={12} className="text-slate-500" />
               </div>
               <div className="flex-1 min-w-0">
-                <div className="text-xs font-medium text-stone-700">{playerName}</div>
-                <p className="text-sm text-stone-600 mt-0.5">{playerAction}</p>
+                <div className="text-xs font-medium text-slate-700">{playerName}</div>
+                <p className="text-sm text-slate-600 mt-0.5">{playerAction}</p>
               </div>
             </div>
           </div>
         )}
         
         {/* Streaming actions */}
-        <div className="flex-1 overflow-y-auto px-6 py-4 space-y-3">
+        <div className="flex-1 overflow-y-auto px-4 sm:px-6 py-4 space-y-3">
           {streamingActions.length === 0 ? (
             // No actions yet - show skeleton loaders
             <div className="space-y-3">
               {[0,1,2].map(i => (
                 <div key={i} className="flex items-start gap-3 animate-pulse">
-                  <div className="w-6 h-6 rounded-full bg-stone-100 flex-shrink-0" />
+                  <div className="w-6 h-6 rounded-full bg-slate-100/80 flex-shrink-0" />
                   <div className="flex-1 space-y-1.5">
-                    <div className="h-3 w-20 bg-stone-100 rounded" />
-                    <div className="h-4 w-full bg-stone-50 rounded" />
+                    <div className="h-3 w-20 bg-slate-100/80 rounded" />
+                    <div className="h-4 w-full bg-slate-100/70 rounded" />
                   </div>
                 </div>
               ))}
@@ -216,12 +216,12 @@ function TurnModal({
                     key={i} 
                     className="flex items-start gap-3 animate-in fade-in slide-in-from-bottom-2 duration-300"
                   >
-                    <div className="w-6 h-6 rounded-full bg-stone-100 flex items-center justify-center flex-shrink-0 mt-0.5">
-                      <Icon size={12} className="text-stone-500" />
+                    <div className="w-6 h-6 rounded-full bg-white border border-slate-200/70 flex items-center justify-center flex-shrink-0 mt-0.5">
+                      <Icon size={12} className="text-slate-500" />
                     </div>
                     <div className="flex-1 min-w-0">
-                      <div className="text-xs font-medium text-stone-700">{agent?.name || 'Agent'}</div>
-                      <p className="text-sm text-stone-600 mt-0.5">{sa.action}</p>
+                      <div className="text-xs font-medium text-slate-700">{agent?.name || 'Agent'}</div>
+                      <p className="text-sm text-slate-600 mt-0.5">{sa.action}</p>
                     </div>
                   </div>
                 );
@@ -229,9 +229,9 @@ function TurnModal({
               
               {/* Waiting indicator for more agents */}
               {completedCount < totalAgents && (
-                <div className="flex items-center gap-3 text-stone-400">
-                  <div className="w-6 h-6 rounded-full bg-stone-50 flex items-center justify-center">
-                    <div className="w-1.5 h-1.5 rounded-full bg-stone-300 animate-pulse" />
+                <div className="flex items-center gap-3 text-slate-500">
+                  <div className="w-6 h-6 rounded-full bg-white border border-slate-200/70 flex items-center justify-center">
+                    <div className="w-1.5 h-1.5 rounded-full bg-[var(--accent)] animate-pulse" />
                   </div>
                   <span className="text-sm">{totalAgents - completedCount} more agents thinking...</span>
                 </div>
@@ -276,10 +276,10 @@ function StoryText({
     if (!hasContent) {
       return (
         <article className="space-y-4 min-h-[120px]">
-          <div className="h-6 w-3/4 bg-stone-100 rounded animate-pulse" />
+          <div className="h-6 w-3/4 bg-slate-100/80 rounded animate-pulse" />
           <div className="space-y-2">
-            <div className="h-4 w-full bg-stone-50 rounded animate-pulse" />
-            <div className="h-4 w-5/6 bg-stone-50 rounded animate-pulse" />
+            <div className="h-4 w-full bg-slate-100/70 rounded animate-pulse" />
+            <div className="h-4 w-5/6 bg-slate-100/70 rounded animate-pulse" />
           </div>
         </article>
       );
@@ -288,12 +288,12 @@ function StoryText({
     // Content is streaming in
     return (
       <article className="space-y-4 min-h-[120px]">
-        <h1 className="text-xl font-medium text-stone-900 leading-snug">
+        <h1 className="font-display text-2xl sm:text-3xl text-stone-900 leading-snug">
           <RichText>{headline}</RichText>
           {headline && !narration && <span className="animate-pulse text-stone-300 ml-1">▍</span>}
         </h1>
         {narration && (
-          <div className="text-stone-600 leading-relaxed text-[15px] space-y-3">
+          <div className="text-stone-600 leading-relaxed text-base space-y-3">
             {narration.split('\n').filter(Boolean).map((para, i, arr) => (
               <p key={i}>
                 <RichText>{para}</RichText>
@@ -309,10 +309,10 @@ function StoryText({
   // Normal mode - static text with markdown
   return (
     <article className="space-y-4">
-      <h1 className="text-xl font-medium text-stone-900 leading-snug">
+      <h1 className="font-display text-2xl sm:text-3xl text-stone-900 leading-snug">
         <RichText>{headline || 'Simulation Ready'}</RichText>
       </h1>
-      <div className="text-stone-600 leading-relaxed space-y-3 text-[15px]">
+      <div className="text-stone-600 leading-relaxed space-y-3 text-base">
         {(narration || '').split('\n').filter(Boolean).map((para, i) => (
           <p key={i}><RichText>{para}</RichText></p>
         ))}
@@ -1020,92 +1020,118 @@ export default function Home() {
 
   if (!started) {
     return (
-      <div className="min-h-screen bg-gradient-to-b from-stone-100 to-stone-50 flex items-center justify-center p-6">
-        <div className="w-full max-w-xl space-y-8">
-          <div className="text-center space-y-3">
-            <div className="inline-flex items-center justify-center w-12 h-12 rounded-2xl bg-stone-900 text-white mb-2">
-              <Landmark size={24} strokeWidth={1.5} />
-            </div>
-            <h1 className="text-3xl font-semibold text-stone-900 tracking-tight">Power Dynamics</h1>
-            <p className="text-stone-500 text-sm max-w-sm mx-auto">Simulate emergent power struggles, alliances, and betrayals between AI-driven agents</p>
-          </div>
+      <div className="relative min-h-screen overflow-x-hidden bg-[var(--bg)] px-4 py-10 sm:px-6">
+        <div className="pointer-events-none absolute -top-28 -right-28 h-72 w-72 rounded-full bg-[radial-gradient(circle_at_center,rgba(59,130,246,0.22),transparent_70%)] blur-3xl" />
+        <div className="pointer-events-none absolute -bottom-36 -left-28 h-80 w-80 rounded-full bg-[radial-gradient(circle_at_center,rgba(147,197,253,0.18),transparent_70%)] blur-3xl" />
+        <div className="pointer-events-none absolute inset-0 bg-grid opacity-25" />
 
-          <div className="flex flex-wrap justify-center gap-2">
-            {PRESETS.map((p, i) => (
-              <button 
-                key={i} 
-                onClick={() => { setScenario(p.scenario); setScenarioName(p.name); }} 
-                className={`px-3.5 py-2 rounded-lg text-sm font-medium transition-all ${
-                  scenario === p.scenario 
-                    ? 'bg-stone-900 text-white shadow-md shadow-stone-900/20' 
-                    : 'bg-white text-stone-600 border border-stone-200 hover:border-stone-300 hover:shadow-sm'
-                }`}
-              >
-                {p.name}
-              </button>
-            ))}
-          </div>
-
-          <div className="bg-white rounded-2xl shadow-sm border border-stone-200 overflow-hidden focus-within:ring-2 focus-within:ring-stone-900/10 focus-within:border-stone-300 transition-all">
-            <textarea 
-              value={scenario} 
-              onChange={e => setScenario(e.target.value)} 
-              placeholder="Describe your scenario, or select a preset above..." 
-              className="w-full h-40 p-5 resize-none focus:outline-none text-stone-700 placeholder:text-stone-400 text-sm leading-relaxed" 
-            />
-          </div>
-
-          <div className="bg-white rounded-2xl shadow-sm border border-stone-200 p-5 space-y-4">
-            <div className="flex items-center gap-2">
-              <User size={14} className="text-stone-400" />
-              <p className="text-xs font-medium text-stone-500 uppercase tracking-wider">Play as a character</p>
-              <span className="text-xs text-stone-400">(optional)</span>
-            </div>
-            <div className="grid grid-cols-2 gap-3">
-              <input 
-                value={pName} 
-                onChange={e => setPName(e.target.value)} 
-                placeholder="Your name" 
-                className="px-4 py-3 rounded-xl bg-stone-50 border border-stone-200 text-sm focus:outline-none focus:border-stone-400 focus:bg-white transition-all" 
-              />
-              <input 
-                value={pRole} 
-                onChange={e => setPRole(e.target.value)} 
-                placeholder="Your role" 
-                className="px-4 py-3 rounded-xl bg-stone-50 border border-stone-200 text-sm focus:outline-none focus:border-stone-400 focus:bg-white transition-all" 
-              />
-            </div>
-            {pName && (
-              <input 
-                value={pGoal} 
-                onChange={e => setPGoal(e.target.value)} 
-                placeholder="Your goal (e.g., 'Become the most powerful figure in the room')" 
-                className="w-full px-4 py-3 rounded-xl bg-stone-50 border border-stone-200 text-sm focus:outline-none focus:border-stone-400 focus:bg-white transition-all" 
-              />
-            )}
-          </div>
-
-          <button 
-            onClick={init} 
-            disabled={loading || !scenario.trim()} 
-            className="group w-full py-4 bg-stone-900 text-white rounded-2xl font-medium disabled:opacity-40 hover:bg-stone-800 transition-all relative overflow-hidden hover:shadow-lg hover:shadow-stone-900/20 active:scale-[0.99]"
-          >
-            {loading ? (
-              <div className="flex items-center justify-center gap-3">
-                <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
-                <span className="text-white/90">{loadingPhase || 'Creating world...'}</span>
+        <div className="relative z-10 mx-auto w-full max-w-5xl">
+          <div className="grid gap-8 lg:grid-cols-[1.05fr_0.95fr] items-start">
+            <div className="space-y-6 motion-safe:animate-pop-in">
+              <div className="inline-flex items-center gap-3 rounded-full bg-white px-4 py-2 text-xs font-semibold uppercase tracking-[0.2em] text-slate-500 shadow-sm shadow-slate-900/10 border border-slate-200/70">
+                <span className="inline-flex h-2 w-2 rounded-full bg-[var(--accent)]" />
+                Democracy Simulator
               </div>
-            ) : (
-              <span className="flex items-center justify-center gap-2">
-                Begin Simulation
-                <svg className="w-4 h-4 transition-transform group-hover:translate-x-0.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 7l5 5m0 0l-5 5m5-5H6" />
-                </svg>
-              </span>
-            )}
-          </button>
+              <div className="space-y-4">
+                <div className="inline-flex items-center justify-center w-14 h-14 rounded-2xl bg-stone-900 text-white shadow-lg shadow-stone-900/20 motion-safe:animate-float">
+                  <Landmark size={26} strokeWidth={1.5} />
+                </div>
+                <h1 className="font-display text-4xl sm:text-5xl tracking-tight text-stone-900">Power Dynamics</h1>
+                <p className="text-stone-600 text-base sm:text-lg max-w-md">
+                  Simulate emergent power struggles, alliances, and betrayals between AI-driven agents.
+                </p>
+              </div>
+              <div className="grid gap-4 sm:grid-cols-2">
+                <div className="glass-panel-soft rounded-2xl p-4">
+                  <p className="text-xs uppercase tracking-[0.25em] text-stone-500">Branching timeline</p>
+                  <p className="mt-2 text-sm text-stone-700">Fork the narrative, revisit any turn, and compare alternate futures.</p>
+                </div>
+                <div className="glass-panel-soft rounded-2xl p-4">
+                  <p className="text-xs uppercase tracking-[0.25em] text-stone-500">Agent agendas</p>
+                  <p className="mt-2 text-sm text-stone-700">Every actor has goals, fears, and secret strategies.</p>
+                </div>
+              </div>
+            </div>
 
-          {error && <p className="text-center text-rose-600 text-sm">{error}</p>}
+            <div className="space-y-5 motion-safe:animate-pop-in" style={{ animationDelay: '120ms' }}>
+              <div className="glass-panel rounded-3xl p-5 sm:p-6 space-y-4">
+                <div className="flex items-center justify-between">
+                  <p className="text-xs uppercase tracking-[0.25em] text-stone-500">Choose a scenario</p>
+                  <span className="text-[11px] text-stone-400">Tap to load</span>
+                </div>
+                <div className="flex gap-2 overflow-x-auto pb-2 -mx-1 px-1 sm:flex-wrap sm:overflow-visible">
+                  {PRESETS.map((p, i) => (
+                    <button 
+                      key={i} 
+                      onClick={() => { setScenario(p.scenario); setScenarioName(p.name); }} 
+                      className={`chip shrink-0 ${scenario === p.scenario ? 'chip-active' : 'chip-idle'}`}
+                    >
+                      {p.name}
+                    </button>
+                  ))}
+                </div>
+
+                <textarea 
+                  value={scenario} 
+                  onChange={e => setScenario(e.target.value)} 
+                  placeholder="Describe your scenario, or select a preset above..." 
+                  className="textarea-field h-40 p-4 resize-none text-base leading-relaxed placeholder:text-stone-400" 
+                />
+              </div>
+
+              <div className="glass-panel rounded-3xl p-5 sm:p-6 space-y-4">
+                <div className="flex items-center gap-2">
+                  <User size={14} className="text-stone-400" />
+                  <p className="text-xs font-medium text-stone-500 uppercase tracking-[0.25em]">Play as a character</p>
+                  <span className="text-xs text-stone-400">(optional)</span>
+                </div>
+                <div className="grid gap-3 sm:grid-cols-2">
+                  <input 
+                    value={pName} 
+                    onChange={e => setPName(e.target.value)} 
+                    placeholder="Your name" 
+                    className="input-field px-4 py-3 text-base" 
+                  />
+                  <input 
+                    value={pRole} 
+                    onChange={e => setPRole(e.target.value)} 
+                    placeholder="Your role" 
+                    className="input-field px-4 py-3 text-base" 
+                  />
+                </div>
+                {pName && (
+                  <input 
+                    value={pGoal} 
+                    onChange={e => setPGoal(e.target.value)} 
+                    placeholder="Your goal (e.g., 'Become the most powerful figure in the room')" 
+                    className="input-field px-4 py-3 text-base" 
+                  />
+                )}
+              </div>
+
+              <button 
+                onClick={init} 
+                disabled={loading || !scenario.trim()} 
+                className="btn-primary group w-full py-4 text-sm sm:text-base relative overflow-hidden disabled:opacity-40"
+              >
+                {loading ? (
+                  <div className="flex items-center justify-center gap-3">
+                    <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                    <span className="text-white/90">{loadingPhase || 'Creating world...'}</span>
+                  </div>
+                ) : (
+                  <span className="flex items-center justify-center gap-2">
+                    Begin Simulation
+                    <svg className="w-4 h-4 transition-transform group-hover:translate-x-0.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 7l5 5m0 0l-5 5m5-5H6" />
+                    </svg>
+                  </span>
+                )}
+              </button>
+
+              {error && <p className="text-center text-rose-600 text-sm">{error}</p>}
+            </div>
+          </div>
         </div>
       </div>
     );
@@ -1118,18 +1144,24 @@ export default function Home() {
   const timeline = getPath();
 
   return (
-    <div className="min-h-screen bg-stone-100 flex">
+    <div className="relative min-h-screen overflow-x-hidden bg-[var(--bg)]">
+      <div className="pointer-events-none absolute inset-0 bg-orbit" />
+      <div className="pointer-events-none absolute inset-0 bg-grid opacity-20" />
+      <div className="relative z-10 min-h-screen flex flex-col lg:flex-row">
       {/* SIDEBAR */}
-      <aside className="w-72 bg-white border-r border-stone-200 flex flex-col shrink-0 sticky top-0 h-screen">
-        <div className="p-5 border-b border-stone-100">
-          <div className="flex items-center justify-between">
-            <span className="font-medium text-stone-900 truncate">{scenarioName || 'Simulation'}</span>
-            <div className="flex items-center gap-2 shrink-0 ml-2">
+      <aside className="order-2 lg:order-1 w-full lg:w-80 xl:w-96 bg-white/90 backdrop-blur-xl border-t lg:border-t-0 lg:border-r border-slate-200/60 flex flex-col shrink-0 lg:sticky lg:top-0 lg:h-screen shadow-[0_20px_40px_rgba(15,23,42,0.06)]">
+        <div className="px-4 pt-5 pb-4 sm:px-5 border-b border-slate-200/60">
+          <div className="flex items-start justify-between gap-3">
+            <div className="min-w-0">
+              <p className="text-[11px] uppercase tracking-[0.3em] text-stone-500">Scenario</p>
+              <span className="mt-1 block font-display text-lg text-stone-900 truncate">{scenarioName || 'Simulation'}</span>
+            </div>
+            <div className="flex items-center gap-2 shrink-0">
               {playerId && state && (
                 <button 
                   onClick={endGame}
                   disabled={analyzingGame || loading || !state.history || state.history.length === 0}
-                  className="text-xs bg-stone-800 text-white hover:bg-stone-700 px-3 py-1.5 rounded-lg transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+                  className="text-xs px-3 py-1.5 rounded-full bg-gradient-to-r from-[var(--accent)] to-[var(--accent-2)] text-white shadow-md shadow-[0_8px_18px_rgba(0,166,166,0.25)] hover:brightness-105 transition disabled:opacity-40 disabled:cursor-not-allowed"
                   title={!state.history || state.history.length === 0 ? 'Play at least one turn first' : 'End game and see analysis'}
                 >
                   {analyzingGame ? 'Analyzing...' : 'End Game'}
@@ -1137,7 +1169,7 @@ export default function Home() {
               )}
               <button 
                 onClick={() => { setStarted(false); setNodes([]); setAuto(false); setGameAnalysis(null); setShowAnalysis(false); }} 
-                className="text-xs text-stone-400 hover:text-stone-600 transition-colors"
+                className="btn-ghost px-3 py-1.5 text-xs"
               >
                 Reset
               </button>
@@ -1146,78 +1178,82 @@ export default function Home() {
         </div>
 
         {playerId && (
-          <div className="p-5 border-b border-stone-100 space-y-3">
-            <p className="text-xs text-stone-400 uppercase tracking-wider font-medium">Your Goal</p>
-            <p className="text-sm text-stone-700 leading-relaxed">{goal}</p>
-            <div className="flex items-center gap-4">
-              <Score value={current?.score} size="lg" />
-              <div className="flex-1 h-1.5 bg-stone-100 rounded-full overflow-hidden">
-                <div 
-                  className="h-full bg-stone-900 transition-all duration-700 ease-out" 
-                  style={{ width: `${current?.score ?? 0}%` }} 
-                />
+          <div className="px-4 py-4 sm:px-5 border-b border-slate-200/60">
+            <div className="glass-panel-soft rounded-2xl p-4 space-y-3">
+              <p className="text-[11px] uppercase tracking-[0.3em] text-stone-500 font-medium">Your Goal</p>
+              <p className="text-sm text-stone-700 leading-relaxed">{goal}</p>
+              <div className="flex items-center gap-4">
+                <Score value={current?.score} size="lg" />
+                <div className="flex-1 h-2 bg-slate-100 rounded-full overflow-hidden">
+                  <div 
+                    className="h-full bg-gradient-to-r from-[var(--accent)] via-[var(--accent-3)] to-[var(--accent-2)] transition-all duration-700 ease-out" 
+                    style={{ width: `${current?.score ?? 0}%` }} 
+                  />
+                </div>
               </div>
             </div>
           </div>
         )}
 
         <div className="flex-1 overflow-y-auto">
-          <div className="p-5 space-y-1">
-            {timeline.map((node, idx) => {
-              const isCurrent = node.id === currentId;
-              // Use streaming headline if available, otherwise fall back to history
-              const headline = node.isStreaming 
-                ? (node.streamingHeadline || 'Generating...') 
-                : (node.state.history[node.state.history.length - 1]?.headline || 'Start');
-              const siblings = getSiblings(node);
+          <div className="px-4 pb-5 sm:px-5">
+            <div className="flex gap-2 overflow-x-auto pb-2 -mx-2 px-2 lg:mx-0 lg:px-0 lg:pb-0 lg:flex-col lg:overflow-visible">
+              {timeline.map((node) => {
+                const isCurrent = node.id === currentId;
+                // Use streaming headline if available, otherwise fall back to history
+                const headline = node.isStreaming 
+                  ? (node.streamingHeadline || 'Generating...') 
+                  : (node.state.history[node.state.history.length - 1]?.headline || 'Start');
+                const siblings = getSiblings(node);
 
-              return (
-                <div key={node.id}>
-                  <button 
-                    onClick={() => { setCurrentId(node.id); setAuto(false); }} 
-                    className={`w-full text-left px-3 py-2 rounded-lg text-sm transition-all flex items-center gap-2 group ${
-                      isCurrent 
-                        ? 'bg-stone-900 text-white' 
-                        : 'hover:bg-stone-50 text-stone-600'
-                    }`}
-                  >
-                    <span className={`font-mono text-xs w-4 shrink-0 ${isCurrent ? 'text-stone-300' : 'text-stone-400'}`}>
-                      {node.state.turn}
-                    </span>
-                    <span className="truncate flex-1">
-                      <RichText inheritColor>{headline}</RichText>
-                    </span>
-                    {playerId && node.score !== null && (
-                      <span className={`text-xs font-mono ${isCurrent ? 'text-stone-300' : 'text-stone-500'}`}>
-                        {node.score}
+                return (
+                  <div key={node.id} className="min-w-[220px] lg:min-w-0">
+                    <button 
+                      onClick={() => { setCurrentId(node.id); setAuto(false); }} 
+                      className={`w-full text-left px-3 py-2 rounded-xl text-sm transition-all flex items-center gap-2 group border ${
+                        isCurrent 
+                        ? 'bg-stone-900 text-white border-stone-900 shadow-lg shadow-stone-900/20' 
+                        : 'bg-white text-stone-700 border-slate-200/70 hover:bg-white'
+                      }`}
+                    >
+                      <span className={`font-mono text-xs w-4 shrink-0 ${isCurrent ? 'text-stone-200' : 'text-stone-500'}`}>
+                        {node.state.turn}
                       </span>
-                    )}
-                  </button>
-                  
-                  {siblings.length > 0 && (
-                    <div className="ml-6 pl-3 border-l border-stone-200 py-1 space-y-0.5">
+                      <span className="truncate flex-1">
+                        <RichText inheritColor>{headline}</RichText>
+                      </span>
+                      {playerId && node.score !== null && (
+                        <span className={`text-xs font-mono ${isCurrent ? 'text-stone-200' : 'text-stone-500'}`}>
+                          {node.score}
+                        </span>
+                      )}
+                    </button>
+                    
+                    {siblings.length > 0 && (
+                    <div className="mt-2 flex gap-2 overflow-x-auto lg:mt-1 lg:ml-6 lg:pl-3 lg:border-l lg:border-slate-200/60 lg:flex-col lg:overflow-visible">
                       {siblings.map(sib => (
                         <button 
                           key={sib.id} 
                           onClick={() => { setCurrentId(sib.id); setAuto(false); }} 
-                          className="w-full text-left px-2 py-1 rounded text-xs text-stone-500 hover:bg-stone-50 hover:text-stone-700 transition-colors truncate"
+                          className="px-2.5 py-1 rounded-full text-[11px] text-stone-600 bg-white border border-slate-200/70 hover:bg-slate-50 hover:text-stone-800 transition-colors truncate"
                         >
                           {sib.action || 'Alt'}
                         </button>
                       ))}
                     </div>
-                  )}
-                </div>
-              );
-            })}
+                    )}
+                  </div>
+                );
+              })}
+            </div>
           </div>
         </div>
 
         {!isLeaf && (
-          <div className="p-4 border-t border-stone-100">
+          <div className="p-4 border-t border-slate-200/60">
             <button 
               onClick={goToLatest} 
-              className="w-full text-center text-xs text-stone-500 hover:text-stone-700 transition-colors py-2"
+              className="w-full text-center text-xs text-stone-600 hover:text-stone-800 transition-colors py-2"
             >
               Go to latest →
             </button>
@@ -1226,40 +1262,40 @@ export default function Home() {
       </aside>
 
       {/* MAIN */}
-      <main className="flex-1 min-h-screen flex flex-col bg-stone-50">
+      <main className="order-1 lg:order-2 flex-1 min-h-screen flex flex-col">
         {/* Header with loading */}
-        <header className="sticky top-0 z-40 bg-white/80 backdrop-blur-sm border-b border-stone-200">
-          <div className="h-14 px-8 flex items-center">
-            <span className="text-sm text-stone-500">Turn</span>
-            <span className="text-sm font-medium text-stone-900 ml-1.5">{currentTurn}</span>
+        <header className="sticky top-0 z-30 bg-white/90 backdrop-blur-xl border-b border-slate-200/60">
+          <div className="h-14 px-4 sm:px-6 lg:px-8 flex items-center gap-2">
+            <span className="text-sm text-stone-500 uppercase tracking-[0.2em]">Turn</span>
+            <span className="text-sm font-semibold text-stone-900">{currentTurn}</span>
             {!isLeaf && (
-              <span className="ml-3 text-xs text-amber-600 bg-amber-50 px-2 py-0.5 rounded">
+              <span className="ml-2 text-[11px] text-amber-700 bg-amber-100/70 px-2.5 py-1 rounded-full border border-amber-200/80">
                 Viewing history
               </span>
             )}
           </div>
           {/* Loading bar - show during narration streaming or other loading (not during modal) */}
-          <div className="h-0.5 bg-stone-100">
+          <div className="h-1 bg-slate-100">
             {(loading && !current?.isStreaming) || (current?.isStreaming && current.streamingHeadline) ? (
-              <div className="h-full bg-stone-400 animate-loading-bar" />
+              <div className="h-full bg-gradient-to-r from-[var(--accent)] via-[var(--accent-3)] to-[var(--accent-2)] animate-loading-bar" />
             ) : null}
           </div>
         </header>
 
         {error && (
-          <div className="mx-8 mt-6 px-4 py-3 bg-rose-50 border border-rose-200 rounded-xl text-rose-700 text-sm flex justify-between items-center">
+          <div className="mx-4 sm:mx-6 lg:mx-8 mt-6 px-4 py-3 bg-rose-50 border border-rose-200 rounded-2xl text-rose-700 text-sm flex justify-between items-center">
             <span>{error}</span>
             <button onClick={() => setError('')} className="text-rose-400 hover:text-rose-600">×</button>
           </div>
         )}
 
-        <div className="flex-1 max-w-2xl mx-auto w-full px-8 py-8 space-y-6">
+        <div className="flex-1 max-w-3xl mx-auto w-full px-4 sm:px-6 lg:px-8 py-6 sm:py-8 space-y-6 motion-safe:animate-pop-in">
           {/* Story Image */}
-          <div className="relative aspect-[16/9] rounded-2xl overflow-hidden bg-stone-100 border border-stone-200">
+          <div className="relative aspect-[16/9] rounded-3xl overflow-hidden bg-white border border-slate-200/70 shadow-[0_20px_50px_rgba(15,23,42,0.08)]">
             {current?.imageLoading ? (
               <div className="absolute inset-0 flex flex-col items-center justify-center gap-3">
                 <div className="relative w-12 h-12">
-                  <div className="absolute inset-0 rounded-full border-2 border-stone-300 border-t-stone-500 animate-spin" />
+                  <div className="absolute inset-0 rounded-full border-2 border-stone-300 border-t-[var(--accent)] animate-spin" />
                 </div>
                 <span className="text-sm text-stone-500 animate-pulse">Generating scene...</span>
               </div>
@@ -1292,8 +1328,8 @@ export default function Home() {
 
           {/* Player's submitted action - only during narrating phase (modal handles actions phase) */}
           {current?.isStreaming && current.streamingPhase === 'narrating' && pendingAction && player && (
-            <div className="bg-stone-100 rounded-xl px-4 py-3 flex items-start gap-3">
-              <div className="w-8 h-8 rounded-full bg-stone-200 flex items-center justify-center flex-shrink-0">
+            <div className="glass-panel-soft rounded-2xl px-4 py-3 flex items-start gap-3">
+              <div className="w-8 h-8 rounded-full bg-white/80 border border-white/70 flex items-center justify-center flex-shrink-0">
                 <AgentIcon type={player.type} />
               </div>
               <div className="flex-1 min-w-0">
@@ -1304,17 +1340,19 @@ export default function Home() {
           )}
 
           {/* Story Text */}
-          <StoryText
-            headline={current?.isStreaming ? (current.streamingHeadline || '') : (story?.headline || 'Simulation Ready')}
-            narration={current?.isStreaming ? (current.streamingNarration || '') : (story?.narration || state?.context || '')}
-            isNew={current?.isNew || false}
-            isStreaming={current?.isStreaming || false}
-            onViewed={() => {
-              if (currentId && current?.isNew) {
-                setNodes(prev => prev.map(n => n.id === currentId ? { ...n, isNew: false } : n));
-              }
-            }}
-          />
+          <div className="glass-panel rounded-3xl p-5 sm:p-6">
+            <StoryText
+              headline={current?.isStreaming ? (current.streamingHeadline || '') : (story?.headline || 'Simulation Ready')}
+              narration={current?.isStreaming ? (current.streamingNarration || '') : (story?.narration || state?.context || '')}
+              isNew={current?.isNew || false}
+              isStreaming={current?.isStreaming || false}
+              onViewed={() => {
+                if (currentId && current?.isNew) {
+                  setNodes(prev => prev.map(n => n.id === currentId ? { ...n, isNew: false } : n));
+                }
+              }}
+            />
+          </div>
           
           {/* Turn simulation modal - shows while streaming until we have headline */}
           {current?.isStreaming && !current.streamingHeadline && state && (
@@ -1329,7 +1367,7 @@ export default function Home() {
 
           {/* Player Action Input - only when not streaming */}
           {playerId && player && !current?.isStreaming && (
-            <div className="bg-white rounded-2xl border border-stone-200 p-5 shadow-sm">
+            <div className="glass-panel rounded-3xl p-5 sm:p-6">
               <div className="flex items-center gap-3 mb-4">
                 <AgentIcon type={player.type} />
                 <div className="flex-1">
@@ -1340,12 +1378,12 @@ export default function Home() {
               </div>
               
               {auto ? (
-                <div className="flex items-center justify-between bg-stone-50 rounded-xl p-3">
+                <div className="flex items-center justify-between bg-white/60 rounded-2xl p-3 border border-white/70">
                   <div className="flex items-center gap-2">
-                    <Zap size={14} className="text-stone-500 animate-pulse" />
+                    <Zap size={14} className="text-[var(--accent)] animate-pulse" />
                     <span className="text-sm text-stone-600">Autopilot active</span>
                   </div>
-                  <button onClick={() => setAuto(false)} className="text-xs text-stone-500 hover:text-stone-700 transition-colors">
+                  <button onClick={() => setAuto(false)} className="text-xs text-stone-600 hover:text-stone-800 transition-colors">
                     Stop
                   </button>
                 </div>
@@ -1355,7 +1393,7 @@ export default function Home() {
                   {loadingSuggestions ? (
                     <div className="space-y-2">
                       {[1, 2, 3].map(i => (
-                        <div key={i} className="h-14 bg-stone-50 rounded-xl animate-pulse" />
+                        <div key={i} className="h-14 bg-white/60 rounded-2xl animate-pulse" />
                       ))}
                     </div>
                   ) : suggestedActions.length > 0 ? (
@@ -1365,14 +1403,14 @@ export default function Home() {
                           key={idx}
                           onClick={() => turn(suggestion.title + ': ' + suggestion.description)}
                           disabled={loading}
-                          className="group w-full px-4 py-3 rounded-xl border border-stone-200 bg-white text-left transition-all hover:border-stone-300 hover:bg-stone-50 hover:shadow-sm disabled:opacity-50 active:scale-[0.99]"
+                          className="group w-full px-4 py-3 rounded-2xl border border-white/70 bg-white/70 text-left transition-all hover:bg-white hover:shadow-lg hover:shadow-stone-900/10 disabled:opacity-50 active:scale-[0.99]"
                         >
                           <div className="flex items-center justify-between gap-3">
                             <div className="flex-1 min-w-0">
                               <span className="font-medium text-stone-900 text-sm">{suggestion.title}</span>
                               <p className="text-xs text-stone-500 mt-0.5 line-clamp-1">{suggestion.description}</p>
                             </div>
-                            <ChevronRight size={16} className="text-stone-300 group-hover:text-stone-400 group-hover:translate-x-0.5 transition-all shrink-0" />
+                            <ChevronRight size={16} className="text-stone-400 group-hover:text-stone-600 group-hover:translate-x-0.5 transition-all shrink-0" />
                           </div>
                         </button>
                       ))}
@@ -1388,12 +1426,12 @@ export default function Home() {
                         onKeyDown={e => e.key === 'Enter' && action.trim() && !loading && turn(action)}
                         placeholder="Or type your own action..."
                         disabled={loading}
-                        className="w-full px-4 py-2.5 rounded-xl bg-stone-50 border border-stone-200 text-sm focus:outline-none focus:border-stone-300 focus:bg-white focus:ring-2 focus:ring-stone-900/5 disabled:opacity-50 transition-all pr-20"
+                        className="input-field px-4 py-2.5 text-base pr-20 disabled:opacity-50"
                       />
                       <button 
                         onClick={() => turn(action)} 
                         disabled={loading || !action.trim()} 
-                        className="absolute right-1.5 top-1/2 -translate-y-1/2 px-3 py-1.5 bg-stone-900 text-white text-xs font-medium rounded-lg hover:bg-stone-800 disabled:opacity-30 disabled:hover:bg-stone-900 transition-all"
+                        className="absolute right-1.5 top-1/2 -translate-y-1/2 px-3 py-1.5 btn-primary text-xs font-semibold disabled:opacity-30"
                       >
                         Send
                       </button>
@@ -1401,7 +1439,7 @@ export default function Home() {
                     <button 
                       onClick={() => setAuto(true)} 
                       disabled={loading} 
-                      className="px-3 py-2.5 bg-stone-100 text-stone-500 rounded-xl hover:bg-stone-200 hover:text-stone-700 disabled:opacity-40 transition-all"
+                      className="px-3 py-2.5 bg-white/70 text-stone-600 rounded-2xl border border-white/70 hover:bg-white hover:text-stone-800 disabled:opacity-40 transition-all"
                       title="Let AI play for you"
                     >
                       <Zap size={16} />
@@ -1417,7 +1455,7 @@ export default function Home() {
             <button 
               onClick={() => turn()} 
               disabled={loading} 
-              className="w-full py-3.5 bg-stone-900 text-white text-sm font-medium rounded-xl hover:bg-stone-800 disabled:opacity-50 transition-colors flex items-center justify-center gap-2"
+              className="btn-primary w-full py-3.5 text-sm rounded-2xl disabled:opacity-50 flex items-center justify-center gap-2"
             >
               {loading ? 'Simulating...' : <>Next Turn <ChevronRight size={16} /></>}
             </button>
@@ -1425,8 +1463,8 @@ export default function Home() {
 
           {/* Agents */}
           <div className="space-y-2">
-            <p className="text-xs text-stone-400 uppercase tracking-wider font-medium px-1">Agents</p>
-            <div className="bg-white rounded-2xl border border-stone-200 divide-y divide-stone-100 shadow-sm overflow-hidden">
+            <p className="text-xs text-stone-500 uppercase tracking-[0.25em] font-medium px-1">Agents</p>
+            <div className="bg-white/70 rounded-3xl border border-white/70 divide-y divide-white/60 shadow-[0_20px_40px_rgba(15,23,42,0.08)] overflow-hidden backdrop-blur">
               {state?.agents.map(agent => {
                 const isP = agent.id === playerId;
                 const thisAction = agent.actionHistory?.find(h => h.turn === currentTurn);
@@ -1436,7 +1474,7 @@ export default function Home() {
                   <button 
                     key={agent.id} 
                     onClick={() => setViewAgent(agent)} 
-                    className={`w-full px-4 py-3 text-left hover:bg-stone-50 transition-colors flex items-center gap-3 ${isP ? 'bg-stone-50' : ''}`}
+                    className={`w-full px-4 py-3 text-left hover:bg-white transition-colors flex items-center gap-3 ${isP ? 'bg-white/70' : ''}`}
                   >
                     <AgentIcon type={agent.type} size={16} />
                     <div className="flex-1 min-w-0">
@@ -1464,35 +1502,35 @@ export default function Home() {
       {/* Agent Modal */}
       {viewAgent && (
         <div 
-          className="fixed inset-0 bg-black/30 backdrop-blur-sm z-50 flex items-center justify-center p-4" 
+          className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-4" 
           onClick={() => setViewAgent(null)}
         >
           <div 
-            className="bg-white rounded-2xl shadow-2xl max-w-md w-full overflow-hidden" 
+            className="glass-panel rounded-3xl max-w-md w-full overflow-hidden" 
             onClick={e => e.stopPropagation()}
           >
-            <div className="px-5 py-4 flex items-center gap-3 border-b border-stone-100">
+            <div className="px-4 sm:px-5 py-4 flex items-center gap-3 border-b border-white/60">
               <AgentIcon type={viewAgent.type} />
               <div className="flex-1">
-                <h2 className="font-medium text-stone-900">{viewAgent.name}</h2>
+                <h2 className="font-display text-stone-900">{viewAgent.name}</h2>
                 <p className="text-xs text-stone-500">{viewAgent.type}</p>
               </div>
               <Score value={current?.agentScores?.[viewAgent.id]} />
               <button 
                 onClick={() => setViewAgent(null)} 
-                className="w-8 h-8 flex items-center justify-center rounded-full hover:bg-stone-100 text-stone-400 transition-colors"
+                className="w-8 h-8 flex items-center justify-center rounded-full hover:bg-white/70 text-stone-400 transition-colors"
               >
                 ×
               </button>
             </div>
-            <div className="p-5 max-h-[60vh] overflow-y-auto space-y-5">
+            <div className="p-4 sm:p-5 max-h-[60vh] overflow-y-auto space-y-5">
               <div>
-                <p className="text-xs text-stone-400 uppercase tracking-wider font-medium mb-2">Current State</p>
+                <p className="text-xs text-stone-500 uppercase tracking-[0.25em] font-medium mb-2">Current State</p>
                 <p className="text-sm text-stone-700 leading-relaxed"><RichText>{viewAgent.state}</RichText></p>
               </div>
               {viewAgent.actionHistory?.length > 0 && (
                 <div>
-                  <p className="text-xs text-stone-400 uppercase tracking-wider font-medium mb-3">History</p>
+                  <p className="text-xs text-stone-500 uppercase tracking-[0.25em] font-medium mb-3">History</p>
                   <div className="space-y-2">
                     {[...viewAgent.actionHistory].reverse().map((a, i) => (
                       <div key={i} className="flex gap-3 text-sm">
@@ -1510,29 +1548,29 @@ export default function Home() {
 
       {/* Game Analysis Modal */}
       {showAnalysis && gameAnalysis && (
-        <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50 p-6 overflow-y-auto">
-          <div className="bg-white rounded-3xl shadow-2xl w-full max-w-2xl max-h-[90vh] overflow-y-auto">
+        <div className="fixed inset-0 bg-black/70 backdrop-blur-sm flex items-center justify-center z-50 p-6 overflow-y-auto">
+          <div className="glass-panel rounded-3xl w-full max-w-2xl max-h-[90vh] overflow-y-auto">
             {/* Header */}
-            <div className="sticky top-0 bg-white border-b border-stone-100 p-6 rounded-t-3xl">
+            <div className="sticky top-0 bg-white/80 backdrop-blur-xl border-b border-white/60 p-4 sm:p-6 rounded-t-3xl">
               <div className="flex items-start justify-between">
                 <div>
-                  <p className="text-xs text-stone-400 uppercase tracking-wider font-medium mb-1">Game Over</p>
-                  <h2 className="text-2xl font-medium text-stone-900">{gameAnalysis.headline}</h2>
+                  <p className="text-xs text-stone-500 uppercase tracking-[0.25em] font-medium mb-1">Game Over</p>
+                  <h2 className="font-display text-2xl text-stone-900">{gameAnalysis.headline}</h2>
                 </div>
                 <button 
                   onClick={() => setShowAnalysis(false)} 
-                  className="p-2 hover:bg-stone-100 rounded-xl transition-colors"
+                  className="p-2 hover:bg-white/70 rounded-xl transition-colors"
                 >
                   <X size={20} className="text-stone-400" />
                 </button>
               </div>
             </div>
 
-            <div className="p-6 space-y-8">
+            <div className="p-4 sm:p-6 space-y-8">
               {/* Grade */}
               {gameAnalysis.playerPerformance && (
                 <div className="flex items-center gap-6">
-                  <div className={`w-20 h-20 rounded-2xl flex items-center justify-center text-3xl font-bold ${
+                  <div className={`w-16 h-16 sm:w-20 sm:h-20 rounded-2xl flex items-center justify-center text-2xl sm:text-3xl font-bold ${
                     gameAnalysis.playerPerformance.grade === 'S' ? 'bg-yellow-100 text-yellow-700' :
                     gameAnalysis.playerPerformance.grade === 'A' ? 'bg-green-100 text-green-700' :
                     gameAnalysis.playerPerformance.grade === 'B' ? 'bg-blue-100 text-blue-700' :
@@ -1551,7 +1589,7 @@ export default function Home() {
 
               {/* Summary */}
               <div>
-                <p className="text-sm text-stone-700 leading-relaxed whitespace-pre-wrap">
+                <p className="text-base text-stone-700 leading-relaxed whitespace-pre-wrap">
                   <RichText>{gameAnalysis.summary}</RichText>
                 </p>
               </div>
@@ -1559,10 +1597,10 @@ export default function Home() {
               {/* Turning Points */}
               {gameAnalysis.turningPoints && gameAnalysis.turningPoints.length > 0 && (
                 <div>
-                  <h3 className="text-xs text-stone-400 uppercase tracking-wider font-medium mb-3">Key Turning Points</h3>
+                  <h3 className="text-xs text-stone-500 uppercase tracking-[0.25em] font-medium mb-3">Key Turning Points</h3>
                   <div className="space-y-3">
                     {gameAnalysis.turningPoints.map((tp, i) => (
-                      <div key={i} className="flex gap-3 p-3 bg-stone-50 rounded-xl">
+                      <div key={i} className="flex gap-3 p-3 bg-white/70 border border-white/70 rounded-2xl">
                         <span className="text-xs font-mono text-stone-400 shrink-0 w-10">T{tp.turn}</span>
                         <div>
                           <p className="text-sm font-medium text-stone-900">{tp.event}</p>
@@ -1575,9 +1613,9 @@ export default function Home() {
               )}
 
               {/* What Went Right/Wrong */}
-              <div className="grid grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div>
-                  <h3 className="text-xs text-stone-400 uppercase tracking-wider font-medium mb-3 flex items-center gap-1">
+                  <h3 className="text-xs text-stone-500 uppercase tracking-[0.25em] font-medium mb-3 flex items-center gap-1">
                     <span className="text-green-500">✓</span> What Went Right
                   </h3>
                   <ul className="space-y-2">
@@ -1590,7 +1628,7 @@ export default function Home() {
                   </ul>
                 </div>
                 <div>
-                  <h3 className="text-xs text-stone-400 uppercase tracking-wider font-medium mb-3 flex items-center gap-1">
+                  <h3 className="text-xs text-stone-500 uppercase tracking-[0.25em] font-medium mb-3 flex items-center gap-1">
                     <span className="text-red-500">✗</span> What Went Wrong
                   </h3>
                   <ul className="space-y-2">
@@ -1606,7 +1644,7 @@ export default function Home() {
 
               {/* Alternative Path */}
               {gameAnalysis.alternativePath && (
-                <div className="p-4 bg-blue-50 rounded-xl border border-blue-100">
+                <div className="p-4 bg-blue-50/80 rounded-2xl border border-blue-100/80">
                   <h3 className="text-xs text-blue-600 uppercase tracking-wider font-medium mb-2">What You Could Have Done</h3>
                   <p className="text-sm text-blue-900">{gameAnalysis.alternativePath}</p>
                 </div>
@@ -1615,10 +1653,10 @@ export default function Home() {
               {/* Final Standings */}
               {gameAnalysis.finalStandings && gameAnalysis.finalStandings.length > 0 && (
                 <div>
-                  <h3 className="text-xs text-stone-400 uppercase tracking-wider font-medium mb-3">Final Standings</h3>
-                  <div className="grid grid-cols-2 gap-2">
+                  <h3 className="text-xs text-stone-500 uppercase tracking-[0.25em] font-medium mb-3">Final Standings</h3>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
                     {gameAnalysis.finalStandings.map((standing, i) => (
-                      <div key={i} className="p-3 bg-stone-50 rounded-xl">
+                      <div key={i} className="p-3 bg-white/70 border border-white/70 rounded-2xl">
                         <p className="text-sm font-medium text-stone-900">{standing.name}</p>
                         <p className="text-xs text-stone-500 mt-0.5">{standing.outcome}</p>
                       </div>
@@ -1628,16 +1666,16 @@ export default function Home() {
               )}
 
               {/* Play Again */}
-              <div className="pt-4 border-t border-stone-100 flex gap-3">
+              <div className="pt-4 border-t border-white/60 flex gap-3">
                 <button
                   onClick={() => { setShowAnalysis(false); }}
-                  className="flex-1 py-3 bg-stone-100 text-stone-700 text-sm font-medium rounded-xl hover:bg-stone-200 transition-colors"
+                  className="flex-1 py-3 btn-ghost text-sm font-medium"
                 >
                   Continue Viewing
                 </button>
                 <button
                   onClick={() => { setStarted(false); setNodes([]); setGameAnalysis(null); setShowAnalysis(false); }}
-                  className="flex-1 py-3 bg-stone-900 text-white text-sm font-medium rounded-xl hover:bg-stone-800 transition-colors"
+                  className="flex-1 py-3 btn-primary text-sm font-medium"
                 >
                   Play Again
                 </button>
@@ -1646,6 +1684,7 @@ export default function Home() {
           </div>
         </div>
       )}
+      </div>
     </div>
   );
 }
