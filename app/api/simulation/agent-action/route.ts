@@ -71,7 +71,7 @@ ${isPlayer
   ? 'Execute your declared action briefly.'
   : 'What do you do this turn? Be specific.'}
 
-Return a concrete action in ONE sentence. No fluff.`;
+Return a concrete action in ONE short sentence (under 15 words). Be punchy and direct. No fluff, no preamble.`;
 
     const response = await client.messages.create({
       model: 'claude-haiku-4-5',

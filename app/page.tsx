@@ -846,24 +846,37 @@ export default function Home() {
             } else if (event.type === 'done') {
               const newState = event.state as SimState;
               
-              setLoadingPhase('Evaluating...');
-              const agentScores = await fetchAgentScores(newState);
-              const playerScore = playerId && agentScores[playerId] ? agentScores[playerId] : null;
-              
+              // Update state IMMEDIATELY so actions are visible
               setNodes(prev => prev.map(n => 
                 n.id === newNodeId ? { 
                   ...n, 
                   state: newState, 
-                  score: playerScore,
-                  agentScores,
                   isStreaming: false,
                   streamingHeadline: undefined,
                   streamingNarration: undefined,
-                  // Only set imageLoading if not already started
                   imageLoading: n.imageLoading || false,
                   isNew: false,
+                  scoring: true, // Mark that we're fetching scores
                 } : n
               ));
+              
+              // Fetch scores in the BACKGROUND - don't block the UI
+              fetchAgentScores(newState).then(agentScores => {
+                const playerScore = playerId && agentScores[playerId] ? agentScores[playerId] : null;
+                setNodes(prev => prev.map(n => 
+                  n.id === newNodeId ? { 
+                    ...n, 
+                    score: playerScore,
+                    agentScores,
+                    scoring: false,
+                  } : n
+                ));
+              }).catch(err => {
+                console.error('Failed to fetch scores:', err);
+                setNodes(prev => prev.map(n => 
+                  n.id === newNodeId ? { ...n, scoring: false } : n
+                ));
+              });
             } else if (event.type === 'error') {
               throw new Error(event.message);
             }
@@ -1007,11 +1020,14 @@ export default function Home() {
 
   if (!started) {
     return (
-      <div className="min-h-screen bg-stone-50 flex items-center justify-center p-6">
+      <div className="min-h-screen bg-gradient-to-b from-stone-100 to-stone-50 flex items-center justify-center p-6">
         <div className="w-full max-w-xl space-y-8">
-          <div className="text-center space-y-2">
-            <h1 className="text-2xl font-light text-stone-900 tracking-tight">Power Dynamics Simulator</h1>
-            <p className="text-stone-500 text-sm">Model emergent power struggles between agents</p>
+          <div className="text-center space-y-3">
+            <div className="inline-flex items-center justify-center w-12 h-12 rounded-2xl bg-stone-900 text-white mb-2">
+              <Landmark size={24} strokeWidth={1.5} />
+            </div>
+            <h1 className="text-3xl font-semibold text-stone-900 tracking-tight">Power Dynamics</h1>
+            <p className="text-stone-500 text-sm max-w-sm mx-auto">Simulate emergent power struggles, alliances, and betrayals between AI-driven agents</p>
           </div>
 
           <div className="flex flex-wrap justify-center gap-2">
@@ -1019,10 +1035,10 @@ export default function Home() {
               <button 
                 key={i} 
                 onClick={() => { setScenario(p.scenario); setScenarioName(p.name); }} 
-                className={`px-3 py-1.5 rounded-full text-sm transition-all ${
+                className={`px-3.5 py-2 rounded-lg text-sm font-medium transition-all ${
                   scenario === p.scenario 
-                    ? 'bg-stone-900 text-white' 
-                    : 'bg-white text-stone-600 border border-stone-200 hover:border-stone-300 hover:bg-stone-50'
+                    ? 'bg-stone-900 text-white shadow-md shadow-stone-900/20' 
+                    : 'bg-white text-stone-600 border border-stone-200 hover:border-stone-300 hover:shadow-sm'
                 }`}
               >
                 {p.name}
@@ -1030,63 +1046,64 @@ export default function Home() {
             ))}
           </div>
 
-          <div className="bg-white rounded-2xl shadow-sm border border-stone-200 overflow-hidden">
+          <div className="bg-white rounded-2xl shadow-sm border border-stone-200 overflow-hidden focus-within:ring-2 focus-within:ring-stone-900/10 focus-within:border-stone-300 transition-all">
             <textarea 
               value={scenario} 
               onChange={e => setScenario(e.target.value)} 
-              placeholder="Describe the scenario..." 
+              placeholder="Describe your scenario, or select a preset above..." 
               className="w-full h-40 p-5 resize-none focus:outline-none text-stone-700 placeholder:text-stone-400 text-sm leading-relaxed" 
             />
           </div>
 
           <div className="bg-white rounded-2xl shadow-sm border border-stone-200 p-5 space-y-4">
-            <p className="text-xs font-medium text-stone-400 uppercase tracking-wider">Play as a character (optional)</p>
+            <div className="flex items-center gap-2">
+              <User size={14} className="text-stone-400" />
+              <p className="text-xs font-medium text-stone-500 uppercase tracking-wider">Play as a character</p>
+              <span className="text-xs text-stone-400">(optional)</span>
+            </div>
             <div className="grid grid-cols-2 gap-3">
               <input 
                 value={pName} 
                 onChange={e => setPName(e.target.value)} 
                 placeholder="Your name" 
-                className="px-4 py-3 rounded-xl bg-stone-50 border border-stone-200 text-sm focus:outline-none focus:border-stone-400 focus:bg-white transition-colors" 
+                className="px-4 py-3 rounded-xl bg-stone-50 border border-stone-200 text-sm focus:outline-none focus:border-stone-400 focus:bg-white transition-all" 
               />
               <input 
                 value={pRole} 
                 onChange={e => setPRole(e.target.value)} 
                 placeholder="Your role" 
-                className="px-4 py-3 rounded-xl bg-stone-50 border border-stone-200 text-sm focus:outline-none focus:border-stone-400 focus:bg-white transition-colors" 
+                className="px-4 py-3 rounded-xl bg-stone-50 border border-stone-200 text-sm focus:outline-none focus:border-stone-400 focus:bg-white transition-all" 
               />
             </div>
             {pName && (
               <input 
                 value={pGoal} 
                 onChange={e => setPGoal(e.target.value)} 
-                placeholder="Your goal (e.g., 'Amass power and influence')" 
-                className="w-full px-4 py-3 rounded-xl bg-stone-50 border border-stone-200 text-sm focus:outline-none focus:border-stone-400 focus:bg-white transition-colors" 
+                placeholder="Your goal (e.g., 'Become the most powerful figure in the room')" 
+                className="w-full px-4 py-3 rounded-xl bg-stone-50 border border-stone-200 text-sm focus:outline-none focus:border-stone-400 focus:bg-white transition-all" 
               />
             )}
           </div>
 
-          <div className="space-y-2">
-            <button 
-              onClick={init} 
-              disabled={loading || !scenario.trim()} 
-              className="w-full py-4 bg-stone-900 text-white rounded-2xl font-medium disabled:opacity-40 hover:bg-stone-800 transition-colors relative overflow-hidden"
-            >
-              {loading && (
-                <div className="absolute inset-0 flex items-center justify-center bg-stone-900">
-                  <div className="flex items-center gap-3">
-                    <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
-                    <span>{loadingPhase || 'Creating world...'}</span>
-                  </div>
-                </div>
-              )}
-              <span className={loading ? 'opacity-0' : ''}>Begin Simulation</span>
-            </button>
-            {loading && (
-              <div className="h-1 bg-stone-200 rounded-full overflow-hidden">
-                <div className="h-full bg-stone-500 animate-loading-bar" />
+          <button 
+            onClick={init} 
+            disabled={loading || !scenario.trim()} 
+            className="group w-full py-4 bg-stone-900 text-white rounded-2xl font-medium disabled:opacity-40 hover:bg-stone-800 transition-all relative overflow-hidden hover:shadow-lg hover:shadow-stone-900/20 active:scale-[0.99]"
+          >
+            {loading ? (
+              <div className="flex items-center justify-center gap-3">
+                <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                <span className="text-white/90">{loadingPhase || 'Creating world...'}</span>
               </div>
+            ) : (
+              <span className="flex items-center justify-center gap-2">
+                Begin Simulation
+                <svg className="w-4 h-4 transition-transform group-hover:translate-x-0.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 7l5 5m0 0l-5 5m5-5H6" />
+                </svg>
+              </span>
             )}
-          </div>
+          </button>
 
           {error && <p className="text-center text-rose-600 text-sm">{error}</p>}
         </div>
@@ -1338,64 +1355,54 @@ export default function Home() {
                   {loadingSuggestions ? (
                     <div className="space-y-2">
                       {[1, 2, 3].map(i => (
-                        <div key={i} className="h-16 bg-stone-50 rounded-xl animate-pulse" />
+                        <div key={i} className="h-14 bg-stone-50 rounded-xl animate-pulse" />
                       ))}
                     </div>
                   ) : suggestedActions.length > 0 ? (
                     <div className="space-y-2">
-                      {suggestedActions.map((suggestion, idx) => {
-                        const strategyColors = {
-                          aggressive: 'border-red-200 hover:border-red-300 hover:bg-red-50/50',
-                          defensive: 'border-blue-200 hover:border-blue-300 hover:bg-blue-50/50',
-                          diplomatic: 'border-green-200 hover:border-green-300 hover:bg-green-50/50'
-                        };
-                        const strategyIcons = {
-                          aggressive: '⚡',
-                          defensive: '🛡️',
-                          diplomatic: '🤝'
-                        };
-                        return (
-                          <button
-                            key={idx}
-                            onClick={() => turn(suggestion.title + ': ' + suggestion.description)}
-                            disabled={loading}
-                            className={`w-full p-3 rounded-xl border bg-white text-left transition-all ${strategyColors[suggestion.strategy]} disabled:opacity-50`}
-                          >
-                            <div className="flex items-start gap-2">
-                              <span className="text-base">{strategyIcons[suggestion.strategy]}</span>
-                              <div className="flex-1 min-w-0">
-                                <span className="font-medium text-stone-900 text-sm">{suggestion.title}</span>
-                                <p className="text-xs text-stone-500 mt-0.5 line-clamp-2">{suggestion.description}</p>
-                              </div>
+                      {suggestedActions.map((suggestion, idx) => (
+                        <button
+                          key={idx}
+                          onClick={() => turn(suggestion.title + ': ' + suggestion.description)}
+                          disabled={loading}
+                          className="group w-full px-4 py-3 rounded-xl border border-stone-200 bg-white text-left transition-all hover:border-stone-300 hover:bg-stone-50 hover:shadow-sm disabled:opacity-50 active:scale-[0.99]"
+                        >
+                          <div className="flex items-center justify-between gap-3">
+                            <div className="flex-1 min-w-0">
+                              <span className="font-medium text-stone-900 text-sm">{suggestion.title}</span>
+                              <p className="text-xs text-stone-500 mt-0.5 line-clamp-1">{suggestion.description}</p>
                             </div>
-                          </button>
-                        );
-                      })}
+                            <ChevronRight size={16} className="text-stone-300 group-hover:text-stone-400 group-hover:translate-x-0.5 transition-all shrink-0" />
+                          </div>
+                        </button>
+                      ))}
                     </div>
                   ) : null}
                   
                   {/* Custom action input */}
-                  <div className="flex gap-2">
-                    <input
-                      value={action}
-                      onChange={e => setAction(e.target.value)}
-                      onKeyDown={e => e.key === 'Enter' && action.trim() && !loading && turn(action)}
-                      placeholder="Or type your own action..."
-                      disabled={loading}
-                      className="flex-1 px-4 py-2.5 rounded-xl bg-stone-50 border border-stone-200 text-sm focus:outline-none focus:border-stone-400 focus:bg-white disabled:opacity-50 transition-colors"
-                    />
-                    <button 
-                      onClick={() => turn(action)} 
-                      disabled={loading || !action.trim()} 
-                      className="px-4 py-2.5 bg-stone-900 text-white text-sm font-medium rounded-xl hover:bg-stone-800 disabled:opacity-40 transition-colors"
-                    >
-                      Go
-                    </button>
+                  <div className="flex gap-2 pt-1">
+                    <div className="flex-1 relative">
+                      <input
+                        value={action}
+                        onChange={e => setAction(e.target.value)}
+                        onKeyDown={e => e.key === 'Enter' && action.trim() && !loading && turn(action)}
+                        placeholder="Or type your own action..."
+                        disabled={loading}
+                        className="w-full px-4 py-2.5 rounded-xl bg-stone-50 border border-stone-200 text-sm focus:outline-none focus:border-stone-300 focus:bg-white focus:ring-2 focus:ring-stone-900/5 disabled:opacity-50 transition-all pr-20"
+                      />
+                      <button 
+                        onClick={() => turn(action)} 
+                        disabled={loading || !action.trim()} 
+                        className="absolute right-1.5 top-1/2 -translate-y-1/2 px-3 py-1.5 bg-stone-900 text-white text-xs font-medium rounded-lg hover:bg-stone-800 disabled:opacity-30 disabled:hover:bg-stone-900 transition-all"
+                      >
+                        Send
+                      </button>
+                    </div>
                     <button 
                       onClick={() => setAuto(true)} 
                       disabled={loading} 
-                      className="px-3 py-2.5 bg-stone-100 text-stone-600 rounded-xl hover:bg-stone-200 disabled:opacity-40 transition-colors"
-                      title="Let AI play"
+                      className="px-3 py-2.5 bg-stone-100 text-stone-500 rounded-xl hover:bg-stone-200 hover:text-stone-700 disabled:opacity-40 transition-all"
+                      title="Let AI play for you"
                     >
                       <Zap size={16} />
                     </button>

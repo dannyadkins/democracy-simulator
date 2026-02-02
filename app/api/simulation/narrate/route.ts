@@ -91,10 +91,11 @@ ${playerAction ? `\n## PLAYER ACTION\nThe player controlling an agent declared: 
 
 Write a succinct narrative of this turn. Focus on consequences, power shifts, and key dynamics.
 
-PACING (be bold with time jumps):
-- Default: WEEKS to MONTHS between turns
-- Cold war / positioning: MONTHS to YEARS  
-- Crisis / climax: DAYS to WEEKS
+PACING (be bold with time jumps - let the story breathe):
+- Default: 2-6 MONTHS between turns
+- Cold war / positioning: 6 MONTHS to 2 YEARS  
+- Crisis / climax: WEEKS to 1-2 MONTHS
+- Skip the boring bits. Each turn should feel like a chapter, not a day.
 
 FORMAT (be very concise):
 - headline: **In-world date** + punchy summary (e.g., "**March 2026**: OpenAI Launches GPT-5")
