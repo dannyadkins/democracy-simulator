@@ -620,7 +620,9 @@ export default function Home() {
   const currentTurn = state?.turn ?? 0;
   const displayedAction = current?.action || pendingAction;
 
-  const updateAgentAvatar = useCallback((agentId: string, updates: Partial<AgentAvatar>) => {
+  type AgentAvatarUpdate = Partial<Pick<AgentAvatar, 'imageUrl' | 'loading' | 'error'>>;
+
+  const updateAgentAvatar = useCallback((agentId: string, updates: AgentAvatarUpdate) => {
     setNodes(prev => prev.map(n => {
       if (!n.state) return n;
       const hasAgent = n.state.agents.some(a => a.id === agentId);
@@ -629,11 +631,11 @@ export default function Home() {
         ...n,
         state: {
           ...n.state,
-          agents: n.state.agents.map(a =>
-            a.id === agentId
-              ? { ...a, avatar: { ...a.avatar, ...updates } }
-              : a
-          ),
+          agents: n.state.agents.map(a => {
+            if (a.id !== agentId) return a;
+            if (!a.avatar) return a;
+            return { ...a, avatar: { ...a.avatar, ...updates } };
+          }),
         },
       };
     }));
