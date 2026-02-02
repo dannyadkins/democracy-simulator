@@ -923,8 +923,16 @@ export default function Home() {
 
   const endGame = async () => {
     if (!state || !player || loading) return;
+    
+    // Validate we have history to analyze
+    if (!state.history || state.history.length === 0) {
+      setError('No game history to analyze. Play at least one turn first.');
+      return;
+    }
+    
     setAnalyzingGame(true);
     setAuto(false);
+    setError('');
     
     try {
       const res = await fetch('/api/simulation/analyze', {
@@ -939,16 +947,21 @@ export default function Home() {
         }),
       });
       
-      if (!res.ok) throw new Error('Failed to analyze game');
       const data = await res.json();
       
-      if (data.success) {
+      if (!res.ok) {
+        throw new Error(data.error || `Server error: ${res.status}`);
+      }
+      
+      if (data.success && data.analysis) {
         setGameAnalysis(data.analysis);
         setShowAnalysis(true);
+      } else {
+        throw new Error(data.error || 'Analysis returned empty result');
       }
-    } catch (e) {
+    } catch (e: any) {
       console.error('Failed to analyze game:', e);
-      setError('Failed to generate analysis');
+      setError(e.message || 'Failed to generate analysis');
     }
     setAnalyzingGame(false);
   };
@@ -1098,9 +1111,9 @@ export default function Home() {
               {playerId && state && (
                 <button 
                   onClick={endGame}
-                  disabled={analyzingGame || loading || state.turn === 0}
+                  disabled={analyzingGame || loading || !state.history || state.history.length === 0}
                   className="text-xs bg-stone-800 text-white hover:bg-stone-700 px-3 py-1.5 rounded-lg transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
-                  title={state.turn === 0 ? 'Play at least one turn first' : 'End game and see analysis'}
+                  title={!state.history || state.history.length === 0 ? 'Play at least one turn first' : 'End game and see analysis'}
                 >
                   {analyzingGame ? 'Analyzing...' : 'End Game'}
                 </button>
@@ -1510,22 +1523,24 @@ export default function Home() {
 
             <div className="p-6 space-y-8">
               {/* Grade */}
-              <div className="flex items-center gap-6">
-                <div className={`w-20 h-20 rounded-2xl flex items-center justify-center text-3xl font-bold ${
-                  gameAnalysis.playerPerformance.grade === 'S' ? 'bg-yellow-100 text-yellow-700' :
-                  gameAnalysis.playerPerformance.grade === 'A' ? 'bg-green-100 text-green-700' :
-                  gameAnalysis.playerPerformance.grade === 'B' ? 'bg-blue-100 text-blue-700' :
-                  gameAnalysis.playerPerformance.grade === 'C' ? 'bg-stone-100 text-stone-700' :
-                  gameAnalysis.playerPerformance.grade === 'D' ? 'bg-orange-100 text-orange-700' :
-                  'bg-red-100 text-red-700'
-                }`}>
-                  {gameAnalysis.playerPerformance.grade}
+              {gameAnalysis.playerPerformance && (
+                <div className="flex items-center gap-6">
+                  <div className={`w-20 h-20 rounded-2xl flex items-center justify-center text-3xl font-bold ${
+                    gameAnalysis.playerPerformance.grade === 'S' ? 'bg-yellow-100 text-yellow-700' :
+                    gameAnalysis.playerPerformance.grade === 'A' ? 'bg-green-100 text-green-700' :
+                    gameAnalysis.playerPerformance.grade === 'B' ? 'bg-blue-100 text-blue-700' :
+                    gameAnalysis.playerPerformance.grade === 'C' ? 'bg-stone-100 text-stone-700' :
+                    gameAnalysis.playerPerformance.grade === 'D' ? 'bg-orange-100 text-orange-700' :
+                    'bg-red-100 text-red-700'
+                  }`}>
+                    {gameAnalysis.playerPerformance.grade || '?'}
+                  </div>
+                  <div>
+                    <p className="font-medium text-stone-900">{gameAnalysis.playerPerformance.verdict || 'Analysis complete'}</p>
+                    <p className="text-sm text-stone-500 mt-1">Your performance toward: {goal}</p>
+                  </div>
                 </div>
-                <div>
-                  <p className="font-medium text-stone-900">{gameAnalysis.playerPerformance.verdict}</p>
-                  <p className="text-sm text-stone-500 mt-1">Your performance toward: {goal}</p>
-                </div>
-              </div>
+              )}
 
               {/* Summary */}
               <div>
@@ -1535,20 +1550,22 @@ export default function Home() {
               </div>
 
               {/* Turning Points */}
-              <div>
-                <h3 className="text-xs text-stone-400 uppercase tracking-wider font-medium mb-3">Key Turning Points</h3>
-                <div className="space-y-3">
-                  {gameAnalysis.turningPoints.map((tp, i) => (
-                    <div key={i} className="flex gap-3 p-3 bg-stone-50 rounded-xl">
-                      <span className="text-xs font-mono text-stone-400 shrink-0 w-10">T{tp.turn}</span>
-                      <div>
-                        <p className="text-sm font-medium text-stone-900">{tp.event}</p>
-                        <p className="text-xs text-stone-500 mt-0.5">{tp.impact}</p>
+              {gameAnalysis.turningPoints && gameAnalysis.turningPoints.length > 0 && (
+                <div>
+                  <h3 className="text-xs text-stone-400 uppercase tracking-wider font-medium mb-3">Key Turning Points</h3>
+                  <div className="space-y-3">
+                    {gameAnalysis.turningPoints.map((tp, i) => (
+                      <div key={i} className="flex gap-3 p-3 bg-stone-50 rounded-xl">
+                        <span className="text-xs font-mono text-stone-400 shrink-0 w-10">T{tp.turn}</span>
+                        <div>
+                          <p className="text-sm font-medium text-stone-900">{tp.event}</p>
+                          <p className="text-xs text-stone-500 mt-0.5">{tp.impact}</p>
+                        </div>
                       </div>
-                    </div>
-                  ))}
+                    ))}
+                  </div>
                 </div>
-              </div>
+              )}
 
               {/* What Went Right/Wrong */}
               <div className="grid grid-cols-2 gap-4">
@@ -1557,7 +1574,7 @@ export default function Home() {
                     <span className="text-green-500">✓</span> What Went Right
                   </h3>
                   <ul className="space-y-2">
-                    {gameAnalysis.whatWentRight.map((item, i) => (
+                    {(gameAnalysis.whatWentRight || []).map((item, i) => (
                       <li key={i} className="text-sm text-stone-600 flex gap-2">
                         <span className="text-green-500 shrink-0">•</span>
                         {item}
@@ -1570,7 +1587,7 @@ export default function Home() {
                     <span className="text-red-500">✗</span> What Went Wrong
                   </h3>
                   <ul className="space-y-2">
-                    {gameAnalysis.whatWentWrong.map((item, i) => (
+                    {(gameAnalysis.whatWentWrong || []).map((item, i) => (
                       <li key={i} className="text-sm text-stone-600 flex gap-2">
                         <span className="text-red-500 shrink-0">•</span>
                         {item}
@@ -1581,23 +1598,27 @@ export default function Home() {
               </div>
 
               {/* Alternative Path */}
-              <div className="p-4 bg-blue-50 rounded-xl border border-blue-100">
-                <h3 className="text-xs text-blue-600 uppercase tracking-wider font-medium mb-2">What You Could Have Done</h3>
-                <p className="text-sm text-blue-900">{gameAnalysis.alternativePath}</p>
-              </div>
+              {gameAnalysis.alternativePath && (
+                <div className="p-4 bg-blue-50 rounded-xl border border-blue-100">
+                  <h3 className="text-xs text-blue-600 uppercase tracking-wider font-medium mb-2">What You Could Have Done</h3>
+                  <p className="text-sm text-blue-900">{gameAnalysis.alternativePath}</p>
+                </div>
+              )}
 
               {/* Final Standings */}
-              <div>
-                <h3 className="text-xs text-stone-400 uppercase tracking-wider font-medium mb-3">Final Standings</h3>
-                <div className="grid grid-cols-2 gap-2">
-                  {gameAnalysis.finalStandings.map((standing, i) => (
-                    <div key={i} className="p-3 bg-stone-50 rounded-xl">
-                      <p className="text-sm font-medium text-stone-900">{standing.name}</p>
-                      <p className="text-xs text-stone-500 mt-0.5">{standing.outcome}</p>
-                    </div>
-                  ))}
+              {gameAnalysis.finalStandings && gameAnalysis.finalStandings.length > 0 && (
+                <div>
+                  <h3 className="text-xs text-stone-400 uppercase tracking-wider font-medium mb-3">Final Standings</h3>
+                  <div className="grid grid-cols-2 gap-2">
+                    {gameAnalysis.finalStandings.map((standing, i) => (
+                      <div key={i} className="p-3 bg-stone-50 rounded-xl">
+                        <p className="text-sm font-medium text-stone-900">{standing.name}</p>
+                        <p className="text-xs text-stone-500 mt-0.5">{standing.outcome}</p>
+                      </div>
+                    ))}
+                  </div>
                 </div>
-              </div>
+              )}
 
               {/* Play Again */}
               <div className="pt-4 border-t border-stone-100 flex gap-3">
