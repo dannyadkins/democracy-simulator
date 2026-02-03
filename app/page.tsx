@@ -566,6 +566,14 @@ export default function Home() {
     scenarioName?: string;
     name?: string;
   }
+  interface TurnSnapshot {
+    turn: number;
+    headline: string;
+    narration: string;
+    context: string;
+    agents: { id: string; name: string; type: string; state: string }[];
+    agentActions?: { agentId: string; action: string }[];
+  }
   const [recentGames, setRecentGames] = useState<GameSummary[]>([]);
   const [loadingRecent, setLoadingRecent] = useState(false);
   const [shareState, setShareState] = useState<'idle' | 'copied' | 'error'>('idle');
@@ -804,14 +812,111 @@ export default function Home() {
       const pid = record.playerId ?? null;
       const g = record.goal || 'Maximize your influence';
 
-      const agentScores = await fetchAgentScores(s, id);
+      let nodesToSet: Node[] = [];
+      let currentNodeId: string | null = null;
+      let currentStateForScores = s;
+
+      const fallbackTurns = Array.isArray(s.history) && s.history.length > 0
+        ? s.history.map(h => ({
+            turn: h.turn,
+            headline: h.headline,
+            narration: h.narration,
+            context: s.context,
+            agents: s.agents.map(a => ({ id: a.id, name: a.name, type: a.type, state: a.state })),
+            agentActions: [],
+          }))
+        : [];
+
+      const turnSnapshots: TurnSnapshot[] = Array.isArray(record.turns) && record.turns.length > 0
+        ? record.turns
+        : (fallbackTurns as TurnSnapshot[]);
+
+      if (turnSnapshots.length > 0) {
+        const turns = turnSnapshots;
+        const history: { turn: number; headline: string; narration: string }[] = [];
+        const actionMap: Record<string, { turn: number; action: string }[]> = {};
+        const avatarMap = new Map(s.agents.map(a => [a.id, { avatar: a.avatar, appearance: a.appearance }]));
+
+        let parentId: string | null = null;
+        for (const snap of turns) {
+          history.push({ turn: snap.turn, headline: snap.headline || '', narration: snap.narration || '' });
+
+          if (Array.isArray(snap.agentActions)) {
+            for (const aa of snap.agentActions) {
+              if (!actionMap[aa.agentId]) actionMap[aa.agentId] = [];
+              actionMap[aa.agentId].push({ turn: snap.turn, action: aa.action });
+            }
+          }
+
+          const agents = snap.agents.map(agent => {
+            const base = avatarMap.get(agent.id);
+            const actions = actionMap[agent.id] ? [...actionMap[agent.id]] : [];
+            return {
+              ...agent,
+              actionHistory: actions,
+              avatar: base?.avatar,
+              appearance: base?.appearance,
+            };
+          });
+
+          const nodeState: SimState = {
+            turn: snap.turn,
+            context: snap.context || s.context,
+            worldHeadline: snap.headline || '',
+            agents,
+            history: [...history],
+          };
+
+          const node: Node = {
+            id: uid(),
+            parent: parentId,
+            state: nodeState,
+            score: null,
+            scoring: false,
+            agentScores: undefined,
+            imageLoading: false,
+            isNew: false,
+          };
+
+          nodesToSet.push(node);
+          parentId = node.id;
+        }
+
+        const lastNode = nodesToSet[nodesToSet.length - 1];
+        currentNodeId = lastNode?.id || null;
+        currentStateForScores = lastNode?.state || s;
+
+        if (nodesToSet.length > 0) {
+          const lastIdx = nodesToSet.length - 1;
+          nodesToSet[lastIdx] = {
+            ...nodesToSet[lastIdx],
+            imageLoading: true,
+            isNew: true,
+          };
+        }
+      } else {
+        const rootId = uid();
+        const root: Node = { id: rootId, parent: null, state: s, score: null, scoring: false, agentScores: undefined, imageLoading: true, isNew: true };
+        nodesToSet = [root];
+        currentNodeId = rootId;
+        currentStateForScores = s;
+      }
+
+      const agentScores = await fetchAgentScores(currentStateForScores, id);
       const playerScore = pid && agentScores[pid] ? agentScores[pid] : null;
 
-      const rootId = uid();
-      const root: Node = { id: rootId, parent: null, state: s, score: playerScore, scoring: false, agentScores, imageLoading: true, isNew: true };
+      if (nodesToSet.length > 0) {
+        const lastIdx = nodesToSet.length - 1;
+        nodesToSet[lastIdx] = {
+          ...nodesToSet[lastIdx],
+          score: playerScore,
+          scoring: false,
+          agentScores,
+        };
+      }
 
-      setNodes([root]);
-      setCurrentId(rootId);
+      setNodes(nodesToSet);
+      setCurrentId(currentNodeId);
       setScenarioName(record.scenarioName || 'Simulation');
       setPlayerId(pid);
       setGoal(g);
@@ -826,13 +931,13 @@ export default function Home() {
         window.history.replaceState({}, '', url.toString());
       }
 
-      const story = s.history[s.history.length - 1];
-      if (story?.headline && story?.narration) {
-        fetchImage(rootId, story.headline, story.narration, s.agents);
-      } else if (s.worldHeadline || s.context) {
-        fetchImage(rootId, s.worldHeadline || 'Simulation begins', s.context || '', s.agents);
-      } else {
-        setNodes(prev => prev.map(n => n.id === rootId ? { ...n, imageLoading: false } : n));
+      const story = currentStateForScores.history[currentStateForScores.history.length - 1];
+      if (story?.headline && story?.narration && currentNodeId) {
+        fetchImage(currentNodeId, story.headline, story.narration, currentStateForScores.agents);
+      } else if ((currentStateForScores.worldHeadline || currentStateForScores.context) && currentNodeId) {
+        fetchImage(currentNodeId, currentStateForScores.worldHeadline || 'Simulation begins', currentStateForScores.context || '', currentStateForScores.agents);
+      } else if (currentNodeId) {
+        setNodes(prev => prev.map(n => n.id === currentNodeId ? { ...n, imageLoading: false } : n));
       }
     } catch (e: any) {
       setError(e.message || 'Failed to load game');
@@ -1310,6 +1415,54 @@ export default function Home() {
                   <p className="mt-2 text-sm text-stone-700">Every actor has motives, constraints, and leverage that evolve over time.</p>
                 </div>
               </div>
+
+              <div className="glass-panel-soft rounded-2xl p-4">
+                <div className="flex items-center justify-between">
+                  <p className="text-xs uppercase tracking-[0.25em] text-stone-500">Recent games</p>
+                  <button 
+                    onClick={fetchRecentGames}
+                    className="text-[11px] text-stone-400 hover:text-stone-600 transition-colors"
+                    disabled={loadingRecent}
+                  >
+                    {loadingRecent ? 'Loading...' : 'Refresh'}
+                  </button>
+                </div>
+                {loadingRecent ? (
+                  <div className="mt-3 space-y-2">
+                    {[1, 2, 3].map(i => (
+                      <div key={i} className="h-10 bg-white/70 rounded-xl animate-pulse" />
+                    ))}
+                  </div>
+                ) : recentGames.length > 0 ? (
+                  <div className="mt-3 space-y-2 max-h-40 overflow-y-auto pr-1">
+                    {recentGames.map(game => {
+                      const dateLabel = new Date(game.updatedAt || game.createdAt).toLocaleDateString();
+                      return (
+                        <button
+                          key={game.id}
+                          onClick={() => loadGame(game.id)}
+                          disabled={loading}
+                          className="w-full px-3 py-2 rounded-xl border border-slate-200/70 bg-white text-left hover:bg-slate-50 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+                        >
+                          <div className="flex items-center justify-between gap-3">
+                            <div className="flex-1 min-w-0">
+                              <p className="text-sm font-medium text-stone-800 truncate">
+                                {game.scenarioName || 'Simulation'}
+                              </p>
+                              <p className="text-xs text-stone-500 truncate">
+                                {game.name ? `${game.name} · ` : ''}{dateLabel}
+                              </p>
+                            </div>
+                            <ChevronRight size={12} className="text-stone-400 shrink-0" />
+                          </div>
+                        </button>
+                      );
+                    })}
+                  </div>
+                ) : (
+                  <p className="mt-3 text-xs text-stone-500">No saved games yet.</p>
+                )}
+              </div>
             </div>
 
             <div className="space-y-5 motion-safe:animate-pop-in" style={{ animationDelay: '120ms' }}>
@@ -1367,54 +1520,6 @@ export default function Home() {
                   />
                 )}
               </div>
-
-              {(loadingRecent || recentGames.length > 0) && (
-                <div className="glass-panel rounded-3xl p-5 sm:p-6 space-y-3">
-                  <div className="flex items-center justify-between">
-                    <p className="text-xs uppercase tracking-[0.25em] text-stone-500">Recent dossiers</p>
-                    <button 
-                      onClick={fetchRecentGames}
-                      className="text-[11px] text-stone-400 hover:text-stone-600 transition-colors"
-                      disabled={loadingRecent}
-                    >
-                      {loadingRecent ? 'Loading...' : 'Refresh'}
-                    </button>
-                  </div>
-                  {loadingRecent ? (
-                    <div className="space-y-2">
-                      {[1, 2, 3].map(i => (
-                        <div key={i} className="h-12 bg-slate-100/70 rounded-2xl animate-pulse" />
-                      ))}
-                    </div>
-                  ) : (
-                    <div className="space-y-2">
-                      {recentGames.map(game => {
-                        const dateLabel = new Date(game.updatedAt || game.createdAt).toLocaleDateString();
-                        return (
-                          <button
-                            key={game.id}
-                            onClick={() => loadGame(game.id)}
-                            disabled={loading}
-                            className="w-full px-4 py-3 rounded-2xl border border-slate-200/70 bg-white text-left hover:bg-slate-50 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
-                          >
-                            <div className="flex items-center justify-between gap-3">
-                              <div className="flex-1 min-w-0">
-                                <p className="text-sm font-medium text-stone-800 truncate">
-                                  {game.scenarioName || 'Simulation'}
-                                </p>
-                                <p className="text-xs text-stone-500 truncate">
-                                  {game.name ? `${game.name} · ` : ''}{dateLabel}
-                                </p>
-                              </div>
-                              <ChevronRight size={14} className="text-stone-400 shrink-0" />
-                            </div>
-                          </button>
-                        );
-                      })}
-                    </div>
-                  )}
-                </div>
-              )}
 
               <button 
                 onClick={init} 

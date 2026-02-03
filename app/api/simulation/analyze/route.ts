@@ -86,13 +86,13 @@ export async function POST(request: NextRequest) {
     let resolvedPlayerName = playerName;
     let resolvedPlayerGoal = playerGoal;
 
-    if (gameId) {
+    if (gameId && (!baseHistory || baseHistory.length === 0 || !baseAgents || baseAgents.length === 0 || !baseContext)) {
       try {
         const record = await getGame(gameId);
         if (record?.state) {
-          baseHistory = record.state.history;
-          baseAgents = record.state.agents;
-          baseContext = record.state.context;
+          baseHistory = baseHistory && baseHistory.length > 0 ? baseHistory : record.state.history;
+          baseAgents = baseAgents && baseAgents.length > 0 ? baseAgents : record.state.agents;
+          baseContext = baseContext || record.state.context;
           if (!resolvedPlayerName) resolvedPlayerName = record.name;
           if (!resolvedPlayerGoal) resolvedPlayerGoal = record.goal;
           if (!resolvedPlayerName && record.playerId) {

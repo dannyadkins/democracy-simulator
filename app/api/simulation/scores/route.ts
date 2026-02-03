@@ -13,7 +13,7 @@ export async function POST(request: NextRequest) {
     const { currentState, gameId } = body;
 
     let baseState = currentState;
-    if (gameId) {
+    if (!baseState && gameId) {
       try {
         const record = await getGame(gameId);
         if (record?.state) baseState = record.state;

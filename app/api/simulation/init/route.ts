@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { ApiClient } from '@/lib/api';
 import { WorldStateManager } from '@/lib/world';
 import { Simulator } from '@/lib/simulator';
-import { saveGame } from '@/lib/game-store';
+import { saveGame, TurnSnapshot } from '@/lib/game-store';
 import { randomUUID } from 'crypto';
 
 export const runtime = 'nodejs';
@@ -45,11 +45,21 @@ export async function POST(request: NextRequest) {
       : null;
 
     let gameId: string | null = null;
+    const latestHistory = state.history[state.history.length - 1];
+    const initialSnapshot: TurnSnapshot = {
+      turn: latestHistory?.turn ?? state.turn ?? 0,
+      headline: latestHistory?.headline || state.worldHeadline || 'Simulation begins',
+      narration: latestHistory?.narration || '',
+      context: state.context,
+      agents: state.agents.map(a => ({ id: a.id, name: a.name, type: a.type, state: a.state })),
+      agentActions: [],
+    };
     try {
       gameId = randomUUID();
       await saveGame({
         id: gameId,
         state,
+        turns: [initialSnapshot],
         scenarioName: scenarioName || 'Simulation',
         name: playerInfo?.name,
         playerId,

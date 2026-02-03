@@ -1,6 +1,6 @@
 import { NextRequest } from 'next/server';
 import Anthropic from '@anthropic-ai/sdk';
-import { getGame, saveGame } from '@/lib/game-store';
+import { getGame, saveGame, TurnSnapshot } from '@/lib/game-store';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -64,7 +64,7 @@ export async function POST(request: NextRequest) {
     if (gameId) {
       try {
         existingRecord = await getGame(gameId);
-        if (existingRecord?.state) baseState = existingRecord.state;
+        if (!baseState && existingRecord?.state) baseState = existingRecord.state;
       } catch (e) {
         console.warn('KV load failed, falling back to request state:', e);
       }
@@ -207,9 +207,37 @@ FORMAT (be very concise):
 
           if (gameId) {
             try {
+              const existingTurns: TurnSnapshot[] = Array.isArray(existingRecord?.turns) ? existingRecord.turns : [];
+              const turns: TurnSnapshot[] = [...existingTurns];
+
+              if (turns.length === 0 && baseState?.history?.length) {
+                const seedHistory = baseState.history[baseState.history.length - 1];
+                if (seedHistory) {
+                  turns.push({
+                    turn: seedHistory.turn ?? baseState.turn ?? 0,
+                    headline: seedHistory.headline || baseState.worldHeadline || 'Simulation begins',
+                    narration: seedHistory.narration || '',
+                    context: baseState.context,
+                    agents: baseState.agents.map(a => ({ id: a.id, name: a.name, type: a.type, state: a.state })),
+                    agentActions: [],
+                  });
+                }
+              }
+
+              const newTurn: TurnSnapshot = {
+                turn: newState.turn,
+                headline: result.headline || newState.worldHeadline || '',
+                narration: result.narration || '',
+                context: newState.context,
+                agents: newState.agents.map(a => ({ id: a.id, name: a.name, type: a.type, state: a.state })),
+                agentActions: agentActions.map((aa: any) => ({ agentId: aa.agentId, action: aa.action })),
+              };
+              turns.push(newTurn);
+
               await saveGame({
                 id: gameId,
                 state: newState,
+                turns,
                 createdAt: existingRecord?.createdAt,
                 scenarioName: meta?.scenarioName ?? existingRecord?.scenarioName,
                 name: meta?.playerName ?? existingRecord?.name,

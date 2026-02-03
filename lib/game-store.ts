@@ -4,12 +4,22 @@ import { GAME_INDEX_KEY, gameKey, getRedis } from './kv';
 export interface GameRecord {
   id: string;
   state: SimState;
+  turns?: TurnSnapshot[];
   createdAt: string;
   updatedAt: string;
   name?: string;
   scenarioName?: string;
   playerId?: string | null;
   goal?: string;
+}
+
+export interface TurnSnapshot {
+  turn: number;
+  headline: string;
+  narration: string;
+  context: string;
+  agents: { id: string; name: string; type: string; state: string }[];
+  agentActions: { agentId: string; action: string }[];
 }
 
 const DEFAULT_TTL_SECONDS = 60 * 60 * 24 * 30; // 30 days
