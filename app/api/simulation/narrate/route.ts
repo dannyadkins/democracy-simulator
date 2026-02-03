@@ -218,7 +218,7 @@ FORMAT (be very concise):
                     headline: seedHistory.headline || baseState.worldHeadline || 'Simulation begins',
                     narration: seedHistory.narration || '',
                     context: baseState.context,
-                    agents: baseState.agents.map(a => ({ id: a.id, name: a.name, type: a.type, state: a.state })),
+                    agents: baseState.agents.map((a: any) => ({ id: a.id, name: a.name, type: a.type, state: a.state })),
                     agentActions: [],
                   });
                 }
@@ -229,7 +229,7 @@ FORMAT (be very concise):
                 headline: result.headline || newState.worldHeadline || '',
                 narration: result.narration || '',
                 context: newState.context,
-                agents: newState.agents.map(a => ({ id: a.id, name: a.name, type: a.type, state: a.state })),
+                agents: newState.agents.map((a: any) => ({ id: a.id, name: a.name, type: a.type, state: a.state })),
                 agentActions: agentActions.map((aa: any) => ({ agentId: aa.agentId, action: aa.action })),
               };
               turns.push(newTurn);

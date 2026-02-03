@@ -67,9 +67,9 @@ export interface GameSummary {
 
 export async function listGames(limit = 20): Promise<GameSummary[]> {
   const redis = getRedis();
-  const ids = await redis.zrange<string>(indexKey(), 0, limit - 1, { rev: true });
+  const ids = await redis.zrange<string[]>(indexKey(), 0, limit - 1, { rev: true });
   if (!ids || ids.length === 0) return [];
-  const records = await redis.mget<GameRecord>(...ids.map(gameKey));
+  const records = await redis.mget<(GameRecord | null)[]>(...ids.map(gameKey));
   const summaries: GameSummary[] = [];
   for (const rec of records) {
     if (!rec) continue;
