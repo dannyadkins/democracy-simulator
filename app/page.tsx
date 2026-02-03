@@ -557,6 +557,7 @@ export default function Home() {
   const [error, setError] = useState('');
   const [action, setAction] = useState('');
   const [auto, setAuto] = useState(false);
+  const [autoActorId, setAutoActorId] = useState<string | null>(null);
   const [viewAgent, setViewAgent] = useState<Agent | null>(null);
 
   interface GameSummary {
@@ -612,6 +613,23 @@ export default function Home() {
   const isLeaf = !nodes.some(n => n.parent === currentId);
   const currentTurn = state?.turn ?? 0;
   const displayedAction = current?.action || pendingAction;
+  const resolvedAutoActorId = playerId ?? autoActorId ?? viewAgent?.id ?? state?.agents[0]?.id ?? null;
+  const autoActor = resolvedAutoActorId
+    ? state?.agents.find(a => a.id === resolvedAutoActorId) ?? null
+    : null;
+  const autoActorLabel = autoActor?.name || 'an agent';
+
+  const startAuto = (actorId?: string | null) => {
+    const resolved = actorId ?? playerId ?? viewAgent?.id ?? state?.agents[0]?.id ?? null;
+    if (!resolved) return;
+    setAutoActorId(resolved);
+    setAuto(true);
+  };
+
+  const stopAuto = useCallback(() => {
+    setAuto(false);
+    setAutoActorId(null);
+  }, []);
 
   type AgentAvatarUpdate = Partial<Pick<AgentAvatar, 'imageUrl' | 'loading' | 'error'>>;
 
@@ -796,7 +814,7 @@ export default function Home() {
     setLoading(true);
     setLoadingPhase('Loading dossier...');
     setError('');
-    setAuto(false);
+    stopAuto();
     setViewAgent(null);
 
     try {
@@ -945,7 +963,7 @@ export default function Home() {
       setLoading(false);
       setLoadingPhase('');
     }
-  }, [fetchAgentScores, fetchImage, uid]);
+  }, [fetchAgentScores, fetchImage, uid, stopAuto]);
 
   const init = async () => {
     if (!scenario.trim()) return;
@@ -1023,7 +1041,7 @@ export default function Home() {
     finally { setLoading(false); setLoadingPhase(''); }
   };
 
-  const turn = async (playerAction?: string) => {
+  const turn = async (playerAction?: string, actorId?: string | null) => {
     if (!state || !currentId || loading) return;
     setLoading(true);
     setLoadingPhase('');
@@ -1060,7 +1078,8 @@ export default function Home() {
       // PHASE 1: Generate agent actions in PARALLEL
       // ═══════════════════════════════════════════════════════════════
       const agentActions: { agentId: string; action: string }[] = [];
-      const playerActionData = playerId && playerAction ? { agentId: playerId, action: playerAction } : undefined;
+      const actionActorId = actorId ?? playerId;
+      const playerActionData = actionActorId && playerAction ? { agentId: actionActorId, action: playerAction } : undefined;
       
       // Prepare requests for all agents
       const agentRequests = state.agents.map(agent => ({
@@ -1211,7 +1230,7 @@ export default function Home() {
       }
     } catch (e: any) { 
       setError(e.message || 'Failed'); 
-      setAuto(false);
+      stopAuto();
       // Remove placeholder node on error
       setNodes(prev => prev.filter(n => n.id !== newNodeId));
       setCurrentId(currentId);
@@ -1219,12 +1238,12 @@ export default function Home() {
     finally { setLoading(false); setLoadingPhase(''); setPendingAction(''); }
   };
 
-  const getAutoAction = async (): Promise<string | null> => {
-    if (!state || !playerId) return null;
+  const getAutoAction = async (actorId: string): Promise<string | null> => {
+    if (!state) return null;
     try {
       const payload = gameId
-        ? { gameId, goal, consciousActorId: playerId }
-        : { currentState: state, goal, consciousActorId: playerId };
+        ? { gameId, goal, consciousActorId: actorId }
+        : { currentState: state, goal, consciousActorId: actorId };
       const res = await fetch('/api/simulation/autopilot', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -1271,7 +1290,7 @@ export default function Home() {
     }
     
     setAnalyzingGame(true);
-    setAuto(false);
+    stopAuto();
     setError('');
     
     try {
@@ -1347,19 +1366,21 @@ export default function Home() {
   }, [currentId, isLeaf, playerId, state?.turn, loading, auto]);
 
   useEffect(() => {
-    if (!auto || loading || !isLeaf || !playerId) return;
+    if (!auto || loading || !isLeaf || !resolvedAutoActorId) return;
     const go = async () => {
       if (!autoRef.current) return;
+      const actorId = resolvedAutoActorId;
+      if (!actorId) return;
       setLoadingPhase('AI thinking...');
       setLoading(true);
-      const act = await getAutoAction();
+      const act = await getAutoAction(actorId);
       setLoading(false);
       setLoadingPhase('');
-      if (act && autoRef.current) await turn(act);
+      if (act && autoRef.current) await turn(act, actorId);
     };
     const t = setTimeout(go, 600);
     return () => clearTimeout(t);
-  }, [auto, loading, currentId, isLeaf]);
+  }, [auto, loading, currentId, isLeaf, resolvedAutoActorId]);
 
   useEffect(() => {
     fetchRecentGames();
@@ -1592,7 +1613,7 @@ export default function Home() {
                 onClick={() => { 
                   setStarted(false); 
                   setNodes([]); 
-                  setAuto(false); 
+                  stopAuto(); 
                   setGameAnalysis(null); 
                   setShowAnalysis(false); 
                   setGameId(null);
@@ -1644,7 +1665,7 @@ export default function Home() {
                 return (
                   <div key={node.id} className="min-w-[220px] lg:min-w-0">
                     <button 
-                      onClick={() => { setCurrentId(node.id); setAuto(false); }} 
+                      onClick={() => { setCurrentId(node.id); stopAuto(); }} 
                       className={`w-full text-left px-3 py-2 rounded-xl text-sm transition-all flex items-center gap-2 group border ${
                         isCurrent 
                         ? 'bg-stone-900 text-white border-stone-900 shadow-lg shadow-stone-900/20' 
@@ -1669,7 +1690,7 @@ export default function Home() {
                       {siblings.map(sib => (
                         <button 
                           key={sib.id} 
-                          onClick={() => { setCurrentId(sib.id); setAuto(false); }} 
+                          onClick={() => { setCurrentId(sib.id); stopAuto(); }} 
                           className="px-2.5 py-1 rounded-full text-[11px] text-stone-600 bg-white border border-slate-200/70 hover:bg-slate-50 hover:text-stone-800 transition-colors truncate"
                         >
                           {sib.action || 'Alt'}
@@ -1815,7 +1836,7 @@ export default function Home() {
                     <Zap size={14} className="text-[var(--accent)] animate-pulse" />
                     <span className="text-sm text-stone-600">Autopilot active</span>
                   </div>
-                  <button onClick={() => setAuto(false)} className="text-xs text-stone-600 hover:text-stone-800 transition-colors">
+                  <button onClick={stopAuto} className="text-xs text-stone-600 hover:text-stone-800 transition-colors">
                     Stop
                   </button>
                 </div>
@@ -1871,7 +1892,7 @@ export default function Home() {
                       </div>
                     </div>
                     <button 
-                      onClick={() => setAuto(true)} 
+                      onClick={() => startAuto()} 
                       disabled={loading} 
                       className="w-full sm:w-auto px-3 py-2.5 bg-white text-stone-600 rounded-2xl border border-slate-200/70 hover:bg-slate-50 hover:text-stone-800 disabled:opacity-40 transition-all shrink-0"
                       title="Let AI play for you"
@@ -1886,13 +1907,39 @@ export default function Home() {
 
           {/* No player */}
           {!playerId && (
-            <button 
-              onClick={() => turn()} 
-              disabled={loading} 
-              className="btn-primary w-full py-3.5 text-sm rounded-2xl disabled:opacity-50 flex items-center justify-center gap-2"
-            >
-              {loading ? 'Simulating...' : <>Next Turn <ChevronRight size={16} /></>}
-            </button>
+            auto ? (
+              <div className="glass-panel-soft rounded-2xl px-4 py-3 flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <Zap size={14} className="text-[var(--accent)] animate-pulse" />
+                  <div className="flex flex-col">
+                    <span className="text-sm text-stone-600">Autopilot active</span>
+                    <span className="text-xs text-stone-400">Acting as {autoActorLabel}</span>
+                  </div>
+                </div>
+                <button onClick={stopAuto} className="text-xs text-stone-600 hover:text-stone-800 transition-colors">
+                  Stop
+                </button>
+              </div>
+            ) : (
+              <div className="grid grid-cols-1 gap-2 sm:grid-cols-[minmax(0,1fr)_auto] sm:items-center">
+                <button 
+                  onClick={() => turn()} 
+                  disabled={loading} 
+                  className="btn-primary w-full py-3.5 text-sm rounded-2xl disabled:opacity-50 flex items-center justify-center gap-2"
+                >
+                  {loading ? 'Simulating...' : <>Next Turn <ChevronRight size={16} /></>}
+                </button>
+                <button
+                  onClick={() => startAuto()}
+                  disabled={loading || !resolvedAutoActorId}
+                  className="w-full sm:w-auto px-3 py-2.5 bg-white text-stone-600 rounded-2xl border border-slate-200/70 hover:bg-slate-50 hover:text-stone-800 disabled:opacity-40 transition-all shrink-0 flex items-center justify-center gap-2"
+                  title={`Let AI play as ${autoActorLabel}`}
+                >
+                  <Zap size={16} />
+                  <span className="text-xs font-medium">Autopilot</span>
+                </button>
+              </div>
+            )
           )}
 
           {/* Agents */}
