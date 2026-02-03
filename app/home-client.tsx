@@ -1292,16 +1292,25 @@ export default function Home() {
     setAnalyzingGame(true);
     stopAuto();
     setError('');
-    
+
+    let resolvedPlayerScore = current?.score ?? null;
+    if (resolvedPlayerScore === null) {
+      try {
+        const scores = await fetchAgentScores(state, gameId);
+        resolvedPlayerScore = playerId && scores[playerId] ? scores[playerId] : null;
+      } catch (e) {
+        console.warn('Failed to fetch score for analysis:', e);
+      }
+    }
+
     try {
-      const payload = gameId ? {
+      const payload = {
         gameId,
         playerName: player.name,
         playerGoal: goal,
-      } : {
+        playerId,
+        playerScore: resolvedPlayerScore,
         gameHistory: state.history,
-        playerName: player.name,
-        playerGoal: goal,
         agents: state.agents,
         finalContext: state.context,
       };
@@ -2094,34 +2103,40 @@ export default function Home() {
               )}
 
               {/* What Went Right/Wrong */}
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                <div>
-                  <h3 className="text-xs text-stone-500 uppercase tracking-[0.25em] font-medium mb-3 flex items-center gap-1">
-                    <span className="text-green-500">✓</span> What Went Right
-                  </h3>
-                  <ul className="space-y-2">
-                    {(gameAnalysis.whatWentRight || []).map((item, i) => (
-                      <li key={i} className="text-sm text-stone-600 flex gap-2">
-                        <span className="text-green-500 shrink-0">•</span>
-                        {item}
-                      </li>
-                    ))}
-                  </ul>
+              {((gameAnalysis.whatWentRight?.length ?? 0) > 0 || (gameAnalysis.whatWentWrong?.length ?? 0) > 0) && (
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  {gameAnalysis.whatWentRight && gameAnalysis.whatWentRight.length > 0 && (
+                    <div>
+                      <h3 className="text-xs text-stone-500 uppercase tracking-[0.25em] font-medium mb-3 flex items-center gap-1">
+                        <span className="text-green-500">✓</span> What Went Right
+                      </h3>
+                      <ul className="space-y-2">
+                        {gameAnalysis.whatWentRight.map((item, i) => (
+                          <li key={i} className="text-sm text-stone-600 flex gap-2">
+                            <span className="text-green-500 shrink-0">•</span>
+                            {item}
+                          </li>
+                        ))}
+                      </ul>
+                    </div>
+                  )}
+                  {gameAnalysis.whatWentWrong && gameAnalysis.whatWentWrong.length > 0 && (
+                    <div>
+                      <h3 className="text-xs text-stone-500 uppercase tracking-[0.25em] font-medium mb-3 flex items-center gap-1">
+                        <span className="text-red-500">✗</span> What Went Wrong
+                      </h3>
+                      <ul className="space-y-2">
+                        {gameAnalysis.whatWentWrong.map((item, i) => (
+                          <li key={i} className="text-sm text-stone-600 flex gap-2">
+                            <span className="text-red-500 shrink-0">•</span>
+                            {item}
+                          </li>
+                        ))}
+                      </ul>
+                    </div>
+                  )}
                 </div>
-                <div>
-                  <h3 className="text-xs text-stone-500 uppercase tracking-[0.25em] font-medium mb-3 flex items-center gap-1">
-                    <span className="text-red-500">✗</span> What Went Wrong
-                  </h3>
-                  <ul className="space-y-2">
-                    {(gameAnalysis.whatWentWrong || []).map((item, i) => (
-                      <li key={i} className="text-sm text-stone-600 flex gap-2">
-                        <span className="text-red-500 shrink-0">•</span>
-                        {item}
-                      </li>
-                    ))}
-                  </ul>
-                </div>
-              </div>
+              )}
 
               {/* Alternative Path */}
               {gameAnalysis.alternativePath && (

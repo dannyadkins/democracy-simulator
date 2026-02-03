@@ -75,16 +75,48 @@ const ANALYSIS_SCHEMA = {
   required: ['headline', 'summary', 'playerPerformance', 'turningPoints', 'whatWentRight', 'whatWentWrong', 'alternativePath', 'finalStandings']
 };
 
+function normalizeStringArray(value: unknown): string[] {
+  if (Array.isArray(value)) {
+    return value
+      .map(item => (typeof item === 'string' ? item.trim() : String(item)))
+      .filter(Boolean);
+  }
+  if (typeof value === 'string') {
+    return value
+      .split(/\n|•|-\s+/)
+      .map(item => item.trim())
+      .filter(Boolean);
+  }
+  return [];
+}
+
+function normalizeScore(value: unknown): number | null {
+  if (typeof value !== 'number' || !Number.isFinite(value)) return null;
+  if (value < 0 || value > 100) return null;
+  return value;
+}
+
+function scoreToGrade(score: number | null): string | null {
+  if (score === null) return null;
+  if (score >= 90) return 'S';
+  if (score >= 80) return 'A';
+  if (score >= 70) return 'B';
+  if (score >= 55) return 'C';
+  if (score >= 40) return 'D';
+  return 'F';
+}
+
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
-    const { gameHistory, playerName, playerGoal, agents, finalContext, gameId } = body;
+    const { gameHistory, playerName, playerGoal, agents, finalContext, gameId, playerId, playerScore } = body;
 
     let baseHistory = gameHistory;
     let baseAgents = agents;
     let baseContext = finalContext;
     let resolvedPlayerName = playerName;
     let resolvedPlayerGoal = playerGoal;
+    let resolvedPlayerId = playerId;
 
     if (gameId && (!baseHistory || baseHistory.length === 0 || !baseAgents || baseAgents.length === 0 || !baseContext)) {
       try {
@@ -95,6 +127,7 @@ export async function POST(request: NextRequest) {
           baseContext = baseContext || record.state.context;
           if (!resolvedPlayerName) resolvedPlayerName = record.name;
           if (!resolvedPlayerGoal) resolvedPlayerGoal = record.goal;
+          if (!resolvedPlayerId) resolvedPlayerId = record.playerId || null;
           if (!resolvedPlayerName && record.playerId) {
             resolvedPlayerName = record.state.agents.find((a: any) => a.id === record.playerId)?.name;
           }
@@ -136,16 +169,22 @@ export async function POST(request: NextRequest) {
     ).join('\n') || '';
 
     // Build player action history
-    const playerAgent = baseAgents?.find((a: any) => a.name === resolvedPlayerName);
+    const playerAgent = baseAgents?.find((a: any) => 
+      (resolvedPlayerId && a.id === resolvedPlayerId) || a.name === resolvedPlayerName
+    );
     const playerActions = playerAgent?.actionHistory?.map((h: any) => 
       `Turn ${h.turn}: ${h.action}`
     ).join('\n') || 'No recorded actions';
+
+    const normalizedScore = normalizeScore(playerScore);
+    const scoreGrade = scoreToGrade(normalizedScore);
 
     const prompt = `Analyze this completed simulation game and provide a concise post-game report.
 
 ## PLAYER INFO
 - **Name**: ${resolvedPlayerName}
 - **Goal**: ${resolvedPlayerGoal || 'Maximize influence and achieve their objectives'}
+${normalizedScore !== null ? `- **Score (0-100)**: ${normalizedScore}` : ''}
 
 ## PLAYER'S ACTIONS
 ${playerActions}
@@ -212,17 +251,25 @@ Be specific and reference actual events from the game. Keep it crisp, clear, and
     console.log('📊 whatWentWrong:', rawAnalysis.whatWentWrong);
     
     // Validate and provide defaults for missing fields
+    const normalizedWhatWentRight = normalizeStringArray(rawAnalysis.whatWentRight);
+    const normalizedWhatWentWrong = normalizeStringArray(rawAnalysis.whatWentWrong);
+    const normalizedAlternativePath = typeof rawAnalysis.alternativePath === 'string'
+      ? rawAnalysis.alternativePath
+      : Array.isArray(rawAnalysis.alternativePath)
+        ? rawAnalysis.alternativePath.map((item: any) => String(item)).join(' ')
+        : '';
+
     const analysis = {
       headline: rawAnalysis.headline || 'Game Complete',
       summary: rawAnalysis.summary || 'The simulation has concluded.',
       playerPerformance: {
-        grade: rawAnalysis.playerPerformance?.grade || 'C',
+        grade: scoreGrade || rawAnalysis.playerPerformance?.grade || 'C',
         verdict: rawAnalysis.playerPerformance?.verdict || 'Performance varied throughout the game.'
       },
       turningPoints: Array.isArray(rawAnalysis.turningPoints) ? rawAnalysis.turningPoints : [],
-      whatWentRight: Array.isArray(rawAnalysis.whatWentRight) ? rawAnalysis.whatWentRight : ['Participated in the simulation'],
-      whatWentWrong: Array.isArray(rawAnalysis.whatWentWrong) ? rawAnalysis.whatWentWrong : ['Could have been more strategic'],
-      alternativePath: rawAnalysis.alternativePath || 'Different approaches could have led to different outcomes.',
+      whatWentRight: normalizedWhatWentRight,
+      whatWentWrong: normalizedWhatWentWrong,
+      alternativePath: normalizedAlternativePath,
       finalStandings: Array.isArray(rawAnalysis.finalStandings) ? rawAnalysis.finalStandings : []
     };
 
