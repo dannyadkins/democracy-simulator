@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import Anthropic from '@anthropic-ai/sdk';
+import { getGame } from '@/lib/game-store';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -77,9 +78,33 @@ const ANALYSIS_SCHEMA = {
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
-    const { gameHistory, playerName, playerGoal, agents, finalContext } = body;
+    const { gameHistory, playerName, playerGoal, agents, finalContext, gameId } = body;
 
-    if (!playerName) {
+    let baseHistory = gameHistory;
+    let baseAgents = agents;
+    let baseContext = finalContext;
+    let resolvedPlayerName = playerName;
+    let resolvedPlayerGoal = playerGoal;
+
+    if (gameId) {
+      try {
+        const record = await getGame(gameId);
+        if (record?.state) {
+          baseHistory = record.state.history;
+          baseAgents = record.state.agents;
+          baseContext = record.state.context;
+          if (!resolvedPlayerName) resolvedPlayerName = record.name;
+          if (!resolvedPlayerGoal) resolvedPlayerGoal = record.goal;
+          if (!resolvedPlayerName && record.playerId) {
+            resolvedPlayerName = record.state.agents.find((a: any) => a.id === record.playerId)?.name;
+          }
+        }
+      } catch (e) {
+        console.warn('KV load failed for analysis:', e);
+      }
+    }
+
+    if (!resolvedPlayerName) {
       return NextResponse.json(
         { error: 'playerName is required' },
         { status: 400 }
@@ -87,7 +112,7 @@ export async function POST(request: NextRequest) {
     }
 
     // Handle empty or missing history
-    if (!gameHistory || !Array.isArray(gameHistory) || gameHistory.length === 0) {
+    if (!baseHistory || !Array.isArray(baseHistory) || baseHistory.length === 0) {
       return NextResponse.json(
         { error: 'No game history to analyze. Play at least one turn first.' },
         { status: 400 }
@@ -101,17 +126,17 @@ export async function POST(request: NextRequest) {
     const client = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
 
     // Build the game history narrative
-    const historyNarrative = gameHistory.map((h: any) => 
+    const historyNarrative = baseHistory.map((h: any) => 
       `**Turn ${h.turn}**: ${h.headline}\n${h.narration}`
     ).join('\n\n---\n\n');
 
     // Build agent final states
-    const agentStates = agents?.map((a: any) => 
+    const agentStates = baseAgents?.map((a: any) => 
       `- **${a.name}** (${a.type}): ${a.state}`
     ).join('\n') || '';
 
     // Build player action history
-    const playerAgent = agents?.find((a: any) => a.name === playerName);
+    const playerAgent = baseAgents?.find((a: any) => a.name === resolvedPlayerName);
     const playerActions = playerAgent?.actionHistory?.map((h: any) => 
       `Turn ${h.turn}: ${h.action}`
     ).join('\n') || 'No recorded actions';
@@ -119,17 +144,17 @@ export async function POST(request: NextRequest) {
     const prompt = `Analyze this completed simulation game and provide a concise post-game report.
 
 ## PLAYER INFO
-- **Name**: ${playerName}
-- **Goal**: ${playerGoal || 'Maximize influence and achieve their objectives'}
+- **Name**: ${resolvedPlayerName}
+- **Goal**: ${resolvedPlayerGoal || 'Maximize influence and achieve their objectives'}
 
 ## PLAYER'S ACTIONS
 ${playerActions}
 
-## GAME HISTORY (${gameHistory.length} turns)
+## GAME HISTORY (${baseHistory.length} turns)
 ${historyNarrative}
 
 ## FINAL STATE
-${finalContext || 'Game concluded'}
+${baseContext || 'Game concluded'}
 
 ## ALL AGENTS' FINAL STATUS
 ${agentStates}
@@ -160,7 +185,7 @@ You MUST provide ALL of the following in your analysis:
 
 Be specific and reference actual events from the game. Keep it crisp, clear, and a bit punchy.`;
 
-    console.log('📊 Generating game analysis for', playerName, 'with', gameHistory.length, 'turns...');
+    console.log('📊 Generating game analysis for', resolvedPlayerName, 'with', baseHistory.length, 'turns...');
 
     const response = await client.messages.create({
       model: 'claude-haiku-4-5',

@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { GoogleGenAI } from "@google/genai";
+import Anthropic from "@anthropic-ai/sdk";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -43,8 +44,7 @@ export async function POST(request: NextRequest) {
       characterGuide = `\nCHARACTER REFERENCES (optional, do not force inclusion): ${keyAgents}. Use these as visual references only if they naturally fit the scene; otherwise keep them as background cameos or omit. If a named character appears, match their explicit appearance cues closely and avoid inventing extra traits.`;
     }
 
-    // Zany but tasteful editorial illustration with diverse characters
-    const imagePrompt = `Funny satirical illustration of: "${headline}"
+    const baseScenePrompt = `Funny satirical illustration of: "${headline}"
 
 Context: ${narration.slice(0, 250)}
 
@@ -62,6 +62,43 @@ COMEDY APPROACH (pick one):
 - One bizarre detail that doesn't belong
 
 VIBE: Serious diverse professionals treating insanity as normal, with a smart absurdist edge. Slightly theatrical, elegant, and quirky. NO TEXT IN IMAGE.`;
+
+    const buildGeneratedPrompt = async () => {
+      if (!process.env.ANTHROPIC_API_KEY) return baseScenePrompt;
+
+      const client = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
+      const generatorPrompt = `
+You are an art director crafting a highly specific, funny, absurdist editorial illustration prompt for an image model.
+
+GOAL: Produce a fresh, varied, comical scene (avoid repetitiveness). Invent a clear visual gag.
+
+INPUT:
+- Headline: "${headline}"
+- Context: "${narration.slice(0, 250)}"
+${characterGuide ? `- Character references (optional, do not force): ${characterGuide.replace(/\n/g, ' ')}` : ''}
+
+REQUIREMENTS:
+- 16:9 cinematic wide shot.
+- 2D illustration: crisp ink linework + gouache blocks + halftone shadows + subtle paper-cut texture. No photorealism.
+- Absurdist editorial vibe, witty, theatrical, slightly surreal, fun.
+- Include 1 strong central visual gag and 1 small secondary gag.
+- If you include any named character, match explicit appearance cues closely.
+- Diverse cast if multiple figures appear.
+- No text in image.
+
+OUTPUT: Return ONLY the final image prompt (1-2 short paragraphs max).`;
+
+      const result = await client.messages.create({
+        model: "claude-haiku-4-5",
+        max_tokens: 700,
+        messages: [{ role: "user", content: generatorPrompt }],
+      });
+
+      const textBlock = result.content.find((b) => b.type === "text");
+      return textBlock && "text" in textBlock && textBlock.text ? textBlock.text.trim() : baseScenePrompt;
+    };
+
+    const imagePrompt = await buildGeneratedPrompt();
 
 
     console.log("🎨 Generating image for:", headline.slice(0, 50));

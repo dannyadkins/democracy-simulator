@@ -1,5 +1,6 @@
 import { NextRequest } from 'next/server';
 import Anthropic from '@anthropic-ai/sdk';
+import { getGame, saveGame } from '@/lib/game-store';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -56,9 +57,20 @@ export async function POST(request: NextRequest) {
   
   try {
     const body = await request.json();
-    const { currentState, agentActions, playerAction } = body;
+    const { currentState, agentActions, playerAction, gameId, meta } = body;
 
-    if (!currentState || !agentActions) {
+    let baseState = currentState;
+    let existingRecord: any = null;
+    if (gameId) {
+      try {
+        existingRecord = await getGame(gameId);
+        if (existingRecord?.state) baseState = existingRecord.state;
+      } catch (e) {
+        console.warn('KV load failed, falling back to request state:', e);
+      }
+    }
+
+    if (!baseState || !agentActions) {
       return new Response(
         JSON.stringify({ error: 'currentState and agentActions are required' }),
         { status: 400, headers: { 'Content-Type': 'application/json' } }
@@ -73,12 +85,12 @@ export async function POST(request: NextRequest) {
 
     // Build the actions summary
     const actionsSummary = agentActions.map((aa: any) => {
-      const agent = currentState.agents.find((a: any) => a.id === aa.agentId);
+      const agent = baseState.agents.find((a: any) => a.id === aa.agentId);
       return `**${agent?.name || 'Unknown'}** (${agent?.type || 'Agent'}): ${aa.action}`;
     }).join('\n\n');
 
     const prompt = `## CURRENT WORLD STATE
-${currentState.context}
+${baseState.context}
 
 ## AGENTS AND THEIR ACTIONS THIS TURN
 ${actionsSummary}
@@ -166,12 +178,12 @@ FORMAT (be very concise):
           const result = toolUse.input as any;
           
           // Build new state
-          const newState = { ...currentState };
-          newState.turn = (currentState.turn || 0) + 1;
-          newState.context = result.context || currentState.context;
+          const newState = { ...baseState };
+          newState.turn = (baseState.turn || 0) + 1;
+          newState.context = result.context || baseState.context;
           newState.worldHeadline = result.headline || '';
           newState.history = [
-            ...(currentState.history || []),
+            ...(baseState.history || []),
             { turn: newState.turn, headline: result.headline, narration: result.narration }
           ];
           
@@ -190,6 +202,23 @@ FORMAT (be very concise):
               if (stateUpdate?.newState) {
                 newState.agents[agentIdx].state = stateUpdate.newState;
               }
+            }
+          }
+
+          if (gameId) {
+            try {
+              await saveGame({
+                id: gameId,
+                state: newState,
+                createdAt: existingRecord?.createdAt,
+                scenarioName: meta?.scenarioName ?? existingRecord?.scenarioName,
+                name: meta?.playerName ?? existingRecord?.name,
+                playerId: meta?.playerId ?? existingRecord?.playerId,
+                goal: meta?.goal ?? existingRecord?.goal,
+                updatedAt: new Date().toISOString(),
+              });
+            } catch (e) {
+              console.warn('KV save failed after narration:', e);
             }
           }
 
