@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
-import { GoogleGenAI } from "@google/genai";
 import Anthropic from "@anthropic-ai/sdk";
+import { generateImageWithFallback } from "@/lib/image-generation";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -17,12 +17,6 @@ export async function POST(request: NextRequest) {
         { status: 400 },
       );
     }
-
-    if (!process.env.GEMINI_API_KEY) {
-      throw new Error("GEMINI_API_KEY environment variable is not set");
-    }
-
-    const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
 
     const clip = (value: string | undefined, limit: number) => {
       if (!value) return '';
@@ -102,56 +96,18 @@ OUTPUT: Return ONLY the final image prompt (1-2 short paragraphs max).`;
 
 
     console.log("🎨 Generating image for:", headline.slice(0, 50));
-
-    // Use Nano Banana (gemini-2.5-flash-image) for fast image generation
-    const response = await ai.models.generateContent({
-      model: "gemini-2.5-flash-image",
-      contents: imagePrompt,
-      config: {
-        responseModalities: ["Image"],
-        imageConfig: {
-          aspectRatio: "16:9",
-        },
-      },
+    const { imageBase64, provider, model } = await generateImageWithFallback({
+      prompt: imagePrompt,
+      geminiAspectRatio: "16:9",
+      openaiSize: "1536x1024",
+      label: "scene",
     });
-
-    // Extract image from response
-    const candidate = response.candidates?.[0];
-    const parts = candidate?.content?.parts;
-
-    // Log what we got back for debugging
-    if (!parts || parts.length === 0) {
-      console.error("❌ No parts in response. Candidate:", JSON.stringify(candidate, null, 2));
-      throw new Error("No content in response - may have been filtered");
-    }
-
-    let imageData: string | null = null;
-    let textResponse: string | null = null;
-    
-    for (const part of parts) {
-      if (part.inlineData?.data) {
-        imageData = part.inlineData.data;
-        break;
-      }
-      if (part.text) {
-        textResponse = part.text;
-      }
-    }
-
-    if (!imageData) {
-      if (textResponse) {
-        console.error("❌ Got text instead of image:", textResponse.slice(0, 200));
-        throw new Error(`Model returned text instead of image: ${textResponse.slice(0, 100)}`);
-      }
-      throw new Error("No image data returned");
-    }
-
-    console.log("✅ Image generated (Nano Banana)");
+    console.log(`✅ Image generated (${provider}:${model})`);
 
     // Return as data URL for direct use in img src
     return NextResponse.json({
       success: true,
-      imageUrl: `data:image/png;base64,${imageData}`,
+      imageUrl: `data:image/png;base64,${imageBase64}`,
     });
   } catch (error: any) {
     console.error("Error generating image:", error);

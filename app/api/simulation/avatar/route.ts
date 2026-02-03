@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { GoogleGenAI } from "@google/genai";
+import { generateImageWithFallback } from "@/lib/image-generation";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -16,12 +16,6 @@ export async function POST(request: NextRequest) {
         { status: 400 },
       );
     }
-
-    if (!process.env.GEMINI_API_KEY) {
-      throw new Error("GEMINI_API_KEY environment variable is not set");
-    }
-
-    const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
 
     const avatarPrompt = `
 Create a polished, recognizable cartoon avatar portrait.
@@ -44,49 +38,17 @@ BASE PROMPT:
 ${prompt}
 `;
 
-    const response = await ai.models.generateContent({
-      model: "gemini-2.5-flash-image",
-      contents: avatarPrompt,
-      config: {
-        responseModalities: ["Image"],
-        imageConfig: {
-          aspectRatio: "1:1",
-        },
-      },
+    const { imageBase64 } = await generateImageWithFallback({
+      prompt: avatarPrompt,
+      geminiAspectRatio: "1:1",
+      openaiSize: "1024x1024",
+      openaiQuality: "high",
+      label: "avatar",
     });
-
-    const candidate = response.candidates?.[0];
-    const parts = candidate?.content?.parts;
-
-    if (!parts || parts.length === 0) {
-      console.error("❌ No parts in response. Candidate:", JSON.stringify(candidate, null, 2));
-      throw new Error("No content in response - may have been filtered");
-    }
-
-    let imageData: string | null = null;
-    let textResponse: string | null = null;
-
-    for (const part of parts) {
-      if (part.inlineData?.data) {
-        imageData = part.inlineData.data;
-        break;
-      }
-      if (part.text) {
-        textResponse = part.text;
-      }
-    }
-
-    if (!imageData) {
-      if (textResponse) {
-        console.error("❌ Got text instead of image:", textResponse.slice(0, 200));
-        throw new Error(`Model returned text instead of image: ${textResponse.slice(0, 100)}`);
-      }
-      throw new Error("No image data returned");
-    }
 
     return NextResponse.json({
       success: true,
-      imageUrl: `data:image/png;base64,${imageData}`,
+      imageUrl: `data:image/png;base64,${imageBase64}`,
     });
   } catch (error: any) {
     console.error("Error generating avatar:", error);
