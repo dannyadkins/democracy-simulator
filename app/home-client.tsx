@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect, useRef, useCallback } from 'react';
-import { useSearchParams } from 'next/navigation';
+import { useSearchParams, useRouter, usePathname } from 'next/navigation';
 import { 
   Bot, User, Building2, Landmark, Factory, Radio, Users, Shield,
   CircleDot, ChevronRight, Zap, X
@@ -535,6 +535,8 @@ Make the economy feel tangible: household stress, budgets, taxes, and political 
 // ═══════════════════════════════════════════════════════════════
 
 export default function Home() {
+  const router = useRouter();
+  const pathname = usePathname();
   const searchParams = useSearchParams();
   const sharedGameId = searchParams.get('game');
   const [started, setStarted] = useState(false);
@@ -943,10 +945,8 @@ export default function Home() {
       setShowAnalysis(false);
       setGameAnalysis(null);
 
-      if (options.replaceUrl !== false && typeof window !== 'undefined') {
-        const url = new URL(window.location.href);
-        url.searchParams.set('game', id);
-        window.history.replaceState({}, '', url.toString());
+      if (options.replaceUrl !== false) {
+        router.replace(`${pathname}?game=${id}`);
       }
 
       const story = currentStateForScores.history[currentStateForScores.history.length - 1];
@@ -963,7 +963,7 @@ export default function Home() {
       setLoading(false);
       setLoadingPhase('');
     }
-  }, [fetchAgentScores, fetchImage, uid, stopAuto]);
+  }, [fetchAgentScores, fetchImage, uid, stopAuto, router, pathname]);
 
   const init = async () => {
     if (!scenario.trim()) return;
@@ -1292,16 +1292,7 @@ export default function Home() {
     setAnalyzingGame(true);
     stopAuto();
     setError('');
-
-    let resolvedPlayerScore = current?.score ?? null;
-    if (resolvedPlayerScore === null) {
-      try {
-        const scores = await fetchAgentScores(state, gameId);
-        resolvedPlayerScore = playerId && scores[playerId] ? scores[playerId] : null;
-      } catch (e) {
-        console.warn('Failed to fetch score for analysis:', e);
-      }
-    }
+    const resolvedPlayerScore = current?.score ?? null;
 
     try {
       const payload = {
@@ -1401,12 +1392,10 @@ export default function Home() {
   }, [sharedGameId, started, loading, loadGame]);
 
   useEffect(() => {
-    if (!gameId || typeof window === 'undefined') return;
+    if (!gameId) return;
     setShareState('idle');
-    const url = new URL(window.location.href);
-    url.searchParams.set('game', gameId);
-    window.history.replaceState({}, '', url.toString());
-  }, [gameId]);
+    router.replace(`${pathname}?game=${gameId}`);
+  }, [gameId, router, pathname]);
 
   // ═══════════════════════════════════════════════════════════════
   // SETUP SCREEN
@@ -1628,11 +1617,7 @@ export default function Home() {
                   setGameId(null);
                   setViewAgent(null);
                   setShareState('idle');
-                  if (typeof window !== 'undefined') {
-                    const url = new URL(window.location.href);
-                    url.searchParams.delete('game');
-                    window.history.replaceState({}, '', url.toString());
-                  }
+                  router.replace(pathname);
                 }} 
                 className="btn-ghost px-3 py-1.5 text-xs"
               >
@@ -2170,7 +2155,16 @@ export default function Home() {
                   Continue Viewing
                 </button>
                 <button
-                  onClick={() => { setStarted(false); setNodes([]); setGameAnalysis(null); setShowAnalysis(false); }}
+                  onClick={() => { 
+                    setStarted(false); 
+                    setNodes([]); 
+                    setGameAnalysis(null); 
+                    setShowAnalysis(false); 
+                    setGameId(null);
+                    setViewAgent(null);
+                    setShareState('idle');
+                    router.replace(pathname);
+                  }}
                   className="flex-1 py-3 btn-primary text-sm font-medium"
                 >
                   Play Again
